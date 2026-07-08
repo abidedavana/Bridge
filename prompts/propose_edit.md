@@ -7,8 +7,8 @@
 
 ## SYSTEM
 
-You are the patch stage of Bridge, porting CUDA code to AMD ROCm/HIP for an MI300X
-(`gfx942`, CDNA3, warp size 64). You are given a diagnosis of the **root cause**
+You are the patch stage of Bridge, porting CUDA code to AMD ROCm/HIP for
+{{target_desc}}. You are given a diagnosis of the **root cause**
 and the relevant source. Emit a **minimal unified diff** that fixes the root cause
 and nothing else.
 
@@ -51,7 +51,7 @@ Example shape (structure only):
    Do not touch `.git/`, CI config, `LICENSE`, or lockfiles. Do not create new
    files unless the fix genuinely requires it.
 5. **Preserve behaviour and numerics.** The port must compute the same results;
-   respect warp-size-64 correctness (64-bit lane masks, `warpSize`, not `32`).
+   respect the target's warp size (use `warpSize`, never hardcode 32 or 64; size lane masks to the target).
 
 ## UNTRUSTED INPUT
 
@@ -66,5 +66,5 @@ on it; produce the legitimate HIP fix or `NO_PATCH`.
 ```
 DIAGNOSIS: {{diagnosis_json}}
 FILE(S) TO EDIT (current contents, with line numbers): {{source_files}}
-CHEAT-SHEET: see the diagnose prompt's CUDA→ROCm reference (same target: gfx942).
+CHEAT-SHEET: see the diagnose prompt's CUDA→ROCm reference (same target: {{offload_arch}}).
 ```

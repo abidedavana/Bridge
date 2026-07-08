@@ -18,10 +18,33 @@ from ..llm import ExtractionError, NoPatchProposed, extract_diagnosis, extract_d
 from .context import ContextBundle
 
 
-def load_prompts(prompts_dir: str) -> dict:
+def _target_desc(arch: str) -> str:
+    """One honest line describing the port target, derived from offload_arch."""
+    known = {
+        "gfx942": "an AMD Instinct MI300X (`gfx942`, CDNA3, **warp size 64**)",
+        "gfx90a": "an AMD Instinct MI200-series GPU (`gfx90a`, CDNA2, **warp size 64**)",
+    }
+    if arch in known:
+        return known[arch]
+    if arch.startswith("gfx9"):
+        return f"an AMD Instinct (CDNA) GPU (`{arch}`, **warp size 64**)"
+    if arch.startswith("gfx1"):
+        return f"an AMD Radeon (RDNA) GPU (`{arch}`, **warp size 32** — same as CUDA)"
+    return f"an AMD GPU (`{arch}`)"
+
+
+def load_prompts(prompts_dir: str, offload_arch: str = "gfx942") -> dict:
+    """Load the prompt files, rendering the target-arch markers from config.
+
+    The target is templated, never hardcoded — hardware-day finding: prompts
+    that baked in "MI300X, gfx942" made the agent set HIP_ARCHITECTURES gfx942
+    on a gfx1100 pod, producing a binary the GPU could not run."""
+    desc = _target_desc(offload_arch)
+
     def read(name: str) -> str:
         with open(os.path.join(prompts_dir, name), "r", encoding="utf-8") as fh:
-            return fh.read()
+            text = fh.read()
+        return text.replace("{{target_desc}}", desc).replace("{{offload_arch}}", offload_arch)
 
     return {"diagnose": read("diagnose.md"), "propose_edit": read("propose_edit.md")}
 

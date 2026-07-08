@@ -303,7 +303,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         _seed_repo(cfg.repo.path, scenario.repo_seed)
 
     try:
-        prompts = load_prompts(cfg.prompts_dir)
+        prompts = load_prompts(cfg.prompts_dir, cfg.repo.offload_arch)
     except FileNotFoundError as exc:
         print(f"bridge: missing prompt file: {exc}", file=sys.stderr)
         return 2
