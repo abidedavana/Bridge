@@ -119,6 +119,30 @@ class Executor(ABC):
     # -- convenience helpers shared by all implementations -------------------
 
     @staticmethod
+    def is_git_commit(command: str) -> bool:
+        """True if `command` is a `git commit`, tolerating git's global flags
+        between `git` and the subcommand — the agent commits with explicit
+        `-c user.name=... -c user.email=...` identity so the audit trail works
+        on boxes with no git identity configured (e.g. the hackathon GPU pod)."""
+        try:
+            tokens = shlex.split(command, posix=True)
+        except ValueError:
+            tokens = command.split()
+        if not tokens or tokens[0] != "git":
+            return False
+        i = 1
+        while i < len(tokens):
+            tok = tokens[i]
+            if tok in ("-c", "-C"):
+                i += 2  # global option with a separate value argument
+                continue
+            if tok.startswith("-"):
+                i += 1  # other global flag (e.g. --no-pager)
+                continue
+            return tok == "commit"  # first non-flag token is the subcommand
+        return False
+
+    @staticmethod
     def looks_like(command: str, needle: str) -> bool:
         """True if the first meaningful token(s) of `command` start with `needle`.
 

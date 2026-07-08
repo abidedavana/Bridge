@@ -162,7 +162,7 @@ class MockExecutor(LocalExecutor):
     def _maybe_advance_on_commit(self, command: str, result: ExecResult) -> None:
         if not result.ok:
             return
-        if not Executor.looks_like(command, "git commit"):
+        if not Executor.is_git_commit(command):
             return
         self.commits_total += 1
         self.commits_in_stage += 1

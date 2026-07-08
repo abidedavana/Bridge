@@ -1,0 +1,9 @@
+[ 50%] Building CXX object CMakeFiles/app.dir/src/saxpy.cu.o
+[100%] Linking CXX executable app
+ld.lld: error: undefined symbol: main
+>>> referenced by /lib/x86_64-linux-gnu/crt1.o:(_start)
+clang++: error: linker command failed with exit code 1 (use -v to see invocation)
+failed to execute:/opt/rocm/lib/llvm/bin/clang++ --driver-mode=g++ -O3 --hip-link  -o "app"
+gmake[2]: *** [CMakeFiles/app.dir/build.make:81: app] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:83: CMakeFiles/app.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2

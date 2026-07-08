@@ -22,6 +22,7 @@ to the RunRecorder, so the dashboard shows the loop live and the run log persist
 from __future__ import annotations
 
 import enum
+import hashlib
 import time
 from typing import Optional
 
@@ -32,6 +33,15 @@ from ..patcher import apply_patch
 from ..run_state import IterationRecord, RunRecorder
 from .context import build_context, refresh_source
 from .stages import diagnose, propose_edit
+
+
+def _error_fingerprint(output: str) -> str:
+    """Stable short id for an unrecognised error: hash of the last meaningful
+    lines. The same failure keeps its identity across attempts (so the attempt
+    cap still catches true loops), while a *different* failure gets a fresh
+    cluster and a fresh budget."""
+    tail = [ln.strip() for ln in output.strip().splitlines() if ln.strip()][-6:]
+    return hashlib.md5("\n".join(tail).encode("utf-8", "replace")).hexdigest()[:8]
 
 
 class RunOutcome(str, enum.Enum):
@@ -88,7 +98,15 @@ class Orchestrator:
                 phase, raw = "build", build
 
             primary = pr.primary
-            cluster = (primary.error_class, primary.file) if primary else ("unknown", None)
+            # Unparsed errors get a fingerprint identity instead of a shared
+            # ("unknown", None): otherwise three DIFFERENT unrecognised errors
+            # burn one cluster's attempt budget and a run that is making real
+            # progress gets declared STUCK prematurely (hardware-day find).
+            cluster = (
+                (primary.error_class, primary.file)
+                if primary
+                else ("unknown", _error_fingerprint(raw.combined_output))
+            )
 
             if attempts.get(cluster, 0) >= self.cfg.caps.max_attempts_per_cluster:
                 self.stuck_clusters.append(cluster)
@@ -153,10 +171,17 @@ class Orchestrator:
         klass = primary.error_class if primary else "unknown"
         summary = str(diagnosis.get("fix_summary", "apply fix")).replace("\n", " ")[:120]
         msg = f"bridge(iter {iteration}, {klass}): {summary}\n"
-        # -F from a file avoids any shell-quoting of model-authored text.
+        # -F from a file avoids any shell-quoting of model-authored text. The
+        # -c identity flags make the commit work on boxes with no global git
+        # identity (the hackathon GPU pod had none, and every audit-trail commit
+        # silently failed — hardware-day find).
         self.executor.write_file(".git/bridge_commit_msg.txt", msg)
         self.executor.run("git add -A", phase=Phase.OTHER)
-        self.executor.run("git commit -q -F .git/bridge_commit_msg.txt", phase=Phase.OTHER)
+        self.executor.run(
+            "git -c user.name=bridge-agent -c user.email=bridge@agent.local "
+            "commit -q -F .git/bridge_commit_msg.txt",
+            phase=Phase.OTHER,
+        )
 
     def _hipify(self) -> None:
         hip = self.executor.run(self.cfg.commands.hipify, phase=Phase.HIPIFY)

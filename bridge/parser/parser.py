@@ -57,7 +57,13 @@ _EXPECTED_EXPR = re.compile(
 _GENERIC_DIAG = re.compile(
     r"^(?P<file>\S+):(?P<line>\d+):(?P<col>\d+): (?P<sev>error|warning): (?P<msg>.*)"
 )
-_UNDEF_REF = re.compile(r"undefined reference to [`']?(?P<sym>[A-Za-z_][\w:]*)")
+# GNU ld says "undefined reference to `sym'"; LLVM lld (the ROCm 7.x default)
+# says "ld.lld: error: undefined symbol: sym" — cover both (hardware-day find).
+_UNDEF_REF = re.compile(r"undefined (?:reference to|symbol:) [`']?(?P<sym>[A-Za-z_][\w:@.]*)")
+# CMake also emits headerless errors ("CMake Error: <msg>", no file:line) — e.g.
+# "CMake Error: Cannot determine link language for target" when a .cu source is
+# not claimed by any enabled language (hardware-day find).
+_CMAKE_BARE = re.compile(r"^CMake Error: (?P<msg>.+)")
 _HIPIFY_WARN = re.compile(r"^\s*warning: (?P<file>\S+):(?P<line>\d+): (?P<msg>.*)")
 _CTEST_SUMMARY = re.compile(
     r"(?P<pct>\d+)% tests passed, (?P<failed>\d+) tests failed out of (?P<total>\d+)"
@@ -121,6 +127,28 @@ class ErrorParser:
         m = _CMAKE_HEADER.match(line)
         if m:
             return self._cmake(lines, i, m)
+
+        m = _CMAKE_BARE.match(line)
+        if m:
+            msg = m.group("msg").strip()
+            low = msg.lower()
+            # "Cannot determine link language for target" = the ported source is
+            # not claimed by any enabled language: a build-language wiring issue.
+            klass = (
+                ErrorClass.CMAKE_CUDA_LANGUAGE
+                if ("link language" in low or "linker language" in low)
+                else ErrorClass.UNKNOWN_COMPILE_ERROR
+            )
+            return (
+                Diagnostic(
+                    error_class=klass,
+                    category=Category.CMAKE,
+                    severity=Severity.ERROR,
+                    message=msg,
+                    raw=line.strip(),
+                ),
+                1,
+            )
 
         m = _ARCH_FLAG.search(line)
         if m:
@@ -285,18 +313,30 @@ class ErrorParser:
         return (None, 0)
 
     def _cmake(self, lines, i, m):
-        # Read the indented body until a blank line to classify the error.
+        # Read the whole indented body (blank lines separate paragraphs of ONE
+        # error; a non-indented line such as "Call Stack ..." ends it). The old
+        # stop-at-first-blank version missed CMake 3.22's second paragraph, where
+        # the actionable text lives (hardware-day find).
         body: list[str] = []
         j = i + 1
-        while j < len(lines) and (lines[j].startswith(" ") or not lines[j].strip()):
-            if lines[j].strip():
-                body.append(lines[j].strip())
-            elif body:
+        while j < len(lines):
+            ln = lines[j]
+            if ln.startswith(" "):
+                if ln.strip():
+                    body.append(ln.strip())
+            elif ln.strip():
                 break
             j += 1
         blob = " ".join(body)
-        if "No CMAKE_CUDA_COMPILER" in blob:
-            klass, msg = ErrorClass.CMAKE_CUDA_LANGUAGE, "No CMAKE_CUDA_COMPILER could be found"
+        low = blob.lower()
+        if (
+            "No CMAKE_CUDA_COMPILER" in blob
+            or "failed to find nvcc" in low
+            or "requires the cuda toolkit" in low
+        ):
+            # CUDA is still an enabled language on a box with no nvcc — the real
+            # CMake 3.22 wording is "Failed to find nvcc." (ROCm pod, 2026-07-08).
+            klass, msg = ErrorClass.CMAKE_CUDA_LANGUAGE, (body[0] if body else "CUDA language enabled but no CUDA toolchain")
         elif "CUDAToolkit" in blob or "CUDAToolkitConfig" in blob:
             klass, msg = ErrorClass.CMAKE_CUDA_TOOLKIT, "CUDAToolkit package not found"
         else:
