@@ -5,7 +5,8 @@ MI300X" lives here and is loaded from a single YAML file. Validation is strict:
 a bad config fails at startup with a clear message, never halfway through a run.
 
 The two headline switches:
-  * `executor.kind`  - `mock` (fixtures, no GPU) or `ssh` (the MI300X box).
+  * `executor.kind`  - `mock` (fixtures, no GPU), `local` (this machine IS the
+    ROCm box / GPU pod), or `ssh` (a remote GPU box).
   * `llm.base_url`   - Fireworks AI (guaranteed default) or self-hosted vLLM on
                        the MI300X (the showcase). Any OpenAI-compatible endpoint.
 """
@@ -36,7 +37,11 @@ class MockSettings(BaseModel):
 
 
 class ExecutorConfig(BaseModel):
-    kind: Literal["mock", "ssh"] = "mock"
+    # mock  - fixtures, no GPU (the offline demo/CI path).
+    # local - run for real on THIS machine (a ROCm box or the hackathon's
+    #         Jupyter GPU pod, where Bridge runs on the GPU host itself).
+    # ssh   - run for real on a remote GPU box over SSH.
+    kind: Literal["mock", "local", "ssh"] = "mock"
     mock: Optional[MockSettings] = None
     ssh: Optional[SSHSettings] = None
 

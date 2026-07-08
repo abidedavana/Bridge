@@ -38,6 +38,10 @@ def create_executor(config) -> Executor:
     avoid a hard import cycle; this function only reads attributes.
     """
     ex = config.executor
+    if ex.kind == "local":
+        # Everything runs on this machine — the ROCm-box / Jupyter-GPU-pod path,
+        # where Bridge itself lives on the GPU host and no SSH hop is needed.
+        return LocalExecutor(workdir=config.repo.path)
     if ex.kind == "mock":
         scenario = Scenario.load(ex.mock.scenario)
         return MockExecutor(
