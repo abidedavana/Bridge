@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.18)
+project(port_demo LANGUAGES CXX CUDA)
+add_executable(app src/saxpy.cu)
+set_target_properties(app PROPERTIES CUDA_ARCHITECTURES 70)
+enable_testing()
+add_test(NAME app COMMAND app)

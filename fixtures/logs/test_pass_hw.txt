@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /root/port_demo/build
+Test project /root/port_demo/build
+    Start 1: app
+1/1 Test #1: app ..............................   Passed    0.15 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.15 sec

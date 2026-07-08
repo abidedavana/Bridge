@@ -52,6 +52,21 @@ python -m bridge dashboard --config config.replay.example.yaml     # http://127.
 python -m bridge run --config config.replay.example.yaml --delay 1.0
 ```
 
+## The hardware run — a real autonomous migration recorded on AMD hardware (gfx1100)
+
+On 2026-07-08, on an AMD hackathon GPU pod (Radeon PRO W7900-class, `gfx1100`,
+ROCm 7.2), Bridge autonomously ported this CUDA project for real: live Kimi K2.6
+diagnosed cmake's actual (ANSI-colored) errors, two policy-gated fixes landed as
+real commits, and the ported binary passed `ctest` on the GPU — 3 iterations,
+$0.07. That run's unmodified recording is
+[fixtures/cassettes/hardware.json](fixtures/cassettes/hardware.json); the build
+and test logs in its replay scenario are the genuine captured pod outputs.
+Replay it, no GPU or key needed:
+
+```bash
+python -m bridge run --config config.replay.hardware.yaml
+```
+
 ## Graceful degradation is a feature
 
 Point it at the other scenarios (copy `config.replay.example.yaml`, change

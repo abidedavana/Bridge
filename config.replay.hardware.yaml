@@ -1,0 +1,40 @@
+# Replays the REAL on-hardware migration (AMD hackathon GPU pod, gfx1100,
+# 2026-07-08): live Kimi K2.6 autonomously fixed the CUDA CMake build in 2
+# commits and the ported test passed on the Radeon. No GPU, no API key:
+#   python -m bridge run --config config.replay.hardware.yaml
+
+executor:
+  kind: mock
+  mock:
+    scenario: fixtures/scenarios/hardware.yaml
+
+repo:
+  path: scratch/hardware-run
+  offload_arch: gfx1100   # the pod's actual GPU (RDNA3)
+
+commands:
+  hipify: hipify-perl -inplace -print-stats $(find src -name '*.cu')
+  build: cmake -S . -B build -DCMAKE_CXX_COMPILER=hipcc && cmake --build build -j
+  test: ctest --test-dir build --output-on-failure
+
+llm:
+  backend: replay
+  # The recorded brain: a genuine Fireworks Kimi K2.6 run, captured on the pod.
+  model: accounts/fireworks/models/kimi-k2p6
+  display_host: api.fireworks.ai (recorded on AMD hardware)
+  replay:
+    cassette: fixtures/cassettes/hardware.json
+    strict: true
+  cost:
+    mode: priced
+    # Kimi K2.6 list price (fireworks.ai/models/fireworks/kimi-k2p6): the
+    # replayed figure is what the recorded run actually cost.
+    input_per_mtok: 0.95
+    output_per_mtok: 4.00
+
+caps:
+  max_iterations: 15
+  max_attempts_per_cluster: 3
+
+prompts_dir: prompts
+runs_dir: runs

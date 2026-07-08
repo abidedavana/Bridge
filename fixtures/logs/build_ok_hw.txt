@@ -1,0 +1,4 @@
+5 warnings generated when compiling for gfx1100.
+5 warnings generated when compiling for host.
+[100%] Linking CXX executable app
+[100%] Built target app

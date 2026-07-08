@@ -1,0 +1,14 @@
+-- The CXX compiler identification is Clang 22.0.0
+-- Configuring incomplete, errors occurred!
+See also "/root/port_demo/build/CMakeFiles/CMakeOutput.log".
+See also "/root/port_demo/build/CMakeFiles/CMakeError.log".
+
+[31mCMake Error at /usr/share/cmake-3.22/Modules/CMakeDetermineCUDACompiler.cmake:179 (message):
+  Failed to find nvcc.
+
+  Compiler requires the CUDA toolkit.  Please set the CUDAToolkit_ROOT
+  variable.
+Call Stack (most recent call first):
+  CMakeLists.txt:2 (project)
+
+[0m

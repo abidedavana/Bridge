@@ -1,0 +1,29 @@
+name: hardware
+description: >
+  Replays the REAL on-hardware migration recorded 2026-07-08 on the AMD
+  hackathon GPU pod (Radeon PRO W7900-class, gfx1100, ROCm 7.2). The build and
+  test logs are the genuine captured pod outputs — including cmake's
+  ANSI-colored stderr exactly as the agent saw it — and the LLM responses
+  replay from fixtures/cassettes/hardware.json, the unmodified recording of
+  the live Kimi K2.6 run (2 fixes, 3 iterations, ctest 100%). The repo seed is
+  the same CUDA saxpy project the pod run started from. Only the hipify stats
+  line replays a standard fixture (the pod's hipify output was not captured
+  verbatim).
+
+repo_seed: ../repos/hardware
+
+hipify:
+  log: ../logs/hipify_run.txt
+  exit_code: 0
+
+stages:
+  - name: cuda_language_nvcc
+    build: { log: ../logs/build_err_hw_nvcc_ansi.txt, exit_code: 1 }
+
+  - name: link_language
+    build: { log: ../logs/build_err_hw_linklang_ansi.txt, exit_code: 1 }
+
+  - name: green
+    build: { log: ../logs/build_ok_hw.txt, exit_code: 0 }
+    test: { log: ../logs/test_pass_hw.txt, exit_code: 0, passed: 1, total: 1 }
+    sticky: true

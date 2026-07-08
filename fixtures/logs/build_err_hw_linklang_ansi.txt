@@ -1,0 +1,6 @@
+-- Configuring done
+-- Generating done
+
+[0mCMake Error: Cannot determine link language for target "app".[0m
+[0mCMake Error: CMake can not determine linker language for target: app[0m
+[0mCMake Generate step failed.  Build files cannot be regenerated correctly.[0m
