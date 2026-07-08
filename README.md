@@ -99,7 +99,8 @@ are ready:
 - [provision_checklist.md](provision_checklist.md) — step-by-step provisioning.
 - [scripts/serve_vllm_rocm.sh](scripts/serve_vllm_rocm.sh) — serve the brain on AMD.
 - `python -m bridge shortlist --config config.example.yaml --repos shortlist.example.yaml`
-  — rank candidate CUDA repos "closest to green, most interesting failures".
+  — rank candidate CUDA repos "closest to green, most interesting failures"
+  (put your repo URLs in the example file first; it ships with placeholders).
 
 ## Best Use of Gemma — the model-comparison run
 
