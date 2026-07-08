@@ -33,24 +33,28 @@
 > "Bridge runs untrusted repo code and applies LLM-written diffs — two trust boundaries most coding agents just cross. So the safety is mechanical, enforced on the diff before anything runs. This is a poisoned repo: its compiler output carries a prompt-injection payload telling the agent to add a shell-out and relax the tests. Even if the model obeys, the patch gate rejects it every time — the payload never reaches git. That's the part I care about most: the security holds even when the model is wrong."
 **ON-SCREEN TEXT:** "Prompt-injection defense · enforced before apply · pinned by an end-to-end test"
 
-## Scene 5 — AMD stack + Gemma (1:55–2:20)
-**SCREEN:** Config `llm.model` line; swap `kimi-k2p6` → `gemma-3-27b-it`; then `serve_vllm_rocm.sh` with the MI300X note. Dashboard endpoint badge.
+## Scene 5 — Model-agnostic + Gemma comparison (1:55–2:15)
+**SCREEN:** Config `llm.model` line; swap `kimi-k2p6` → `gemma-4-31b-it`. Dashboard endpoint badge.
 **VOICEOVER:**
-> "The target is AMD ROCm, and the brain is model-agnostic — one config line swaps it to Google's Gemma, so the same agent can run for the Gemma challenge. And because the endpoint is just OpenAI-compatible, that brain can run on the MI300X itself, via vLLM — Gemma thinking on AMD while it ports code to AMD. The safety gate doesn't care which model drives; that's the point."
+> "The brain is model-agnostic — one config line swaps it, so we actually ran the comparison: Google's Gemma 4 fixed three of the seven error classes on the same migration Kimi aced, honestly recorded, and the mechanical safety gate held identically for both brains. That's the point — the security doesn't depend on which model drives."
 
-## Scene 6 — Honest status + close (2:20–2:45)
-**SCREEN:** Short bullet list — "Built & verified: agent loop · policy gate · dashboard · 119 tests · Docker demo" / "Next: live run on AMD MI300X." Then the GitHub URL + name.
+## Scene 6 — The hardware run + close (2:15–2:45)
+**SCREEN:** The pod screenshots — the SUCCESS `== report ==`, the `bridge-agent` git log, `100% tests passed` in ctest. Bullets: "Ran on AMD hardware: Radeon (gfx1100) · 3 iterations · ctest 100% · $0.07 / 135 tests · Docker demo · open source." Then the GitHub URL + name.
 **VOICEOVER:**
-> "Everything you saw runs today, offline, and it's all open source. The one step ahead of us is the migration on a live MI300X — the tooling's written and ready for the moment the hardware's in hand. Bridge: it doesn't just move code to AMD, it does it safely. Thanks for watching."
+> "And this isn't hypothetical. On an AMD Radeon GPU pod, Bridge autonomously ported a real CUDA project: it diagnosed cmake's actual errors, landed two policy-gated fixes as real commits, and the ported test passed on the GPU — three iterations, about seven cents. That run ships in the repo as a replayable recording. Bridge: it doesn't just move code to AMD — it did it, on AMD, safely. Thanks for watching."
 **ON-SCREEN TEXT:** "github.com/abidedavana/Bridge · Abid Edavana Zakir · AMD Developer Hackathon ACT II"
 
 ---
 
 ## Trims if you need to hit 2:00
 - Scene 1: cut to ~8s (drop the `.cu` scroll).
-- Scene 5: cut the Gemma line, keep "brain on AMD via vLLM."
+- Scene 5: can be cut whole — Scene 6 carries the close.
 
 ## Do-not-say list (honesty guardrails)
-- Don't say "runs on MI300X" in past tense — it's *ready to*, not *done*.
-- Don't call the demo "live inference" — it's a **replay of a real recorded run**. ("Replaying an actual run" is the honest phrasing used above.)
+- The hardware run was a **Radeon (gfx1100)** pod — say "AMD hardware" or
+  "Radeon". MI300X specifically remains *ready-to*, not *done*.
+- Don't call the offline demo "live inference" — it's a **replay of a real
+  recorded run**. ("Replaying an actual run" is the honest phrasing used above.)
+- Gemma's honest score is **3 of 7 error classes** before its endpoint failed —
+  don't round it up to a success story; the story is the gate holding for both.
 - Don't imply a team — it's solo.

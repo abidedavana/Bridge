@@ -13,12 +13,21 @@ warp-size 32-vs-64 assumptions on CDNA, `__shfl_sync` semantics,
 finish a migration it says so precisely — every run ends in a complete, honest
 report ("HIPIFY got X%, Bridge autonomously fixed these classes, these remain").
 
-> **Status:** the full agent loop, the live dashboard, the safety gate, and the
-> hardware-day tooling are built and verified — **117 tests passing**, and the
-> entire thing runs on a laptop with **no GPU and no API key**. The offline demo
-> replays a **genuine live migration**: a real Fireworks run (Kimi K2.6) that
-> reached `SUCCESS` with all 7 error classes fixed autonomously, for ~$0.30 at
-> list price. A port on a real MI300X is the only step that still needs hardware.
+> **Status:** built, verified — **135 tests passing** — and **proven on real AMD
+> hardware**: on 2026-07-08 Bridge autonomously ported a CUDA project to a
+> passing test on a Radeon GPU pod (`gfx1100`, ROCm 7.2). Everything below runs
+> on a laptop with **no GPU and no API key**, replaying genuine recorded runs.
+
+## Results (all runs real and recorded; no synthetic outcomes)
+
+| Run | Brain | Outcome |
+| --- | --- | --- |
+| Recorded live migration (the demo) | Kimi K2.6 (Fireworks) | **SUCCESS** — 11 iterations, all **7/7 error classes** fixed autonomously, incl. the 64-bit CDNA warp-mask fix; ~$0.30 at list price |
+| **On AMD hardware** (gfx1100 pod, real hipcc builds) | Kimi K2.6 (Fireworks) | **SUCCESS** — 3 iterations, 2 policy-gated CMake fixes, `ctest` **100%** on the GPU; $0.07 |
+| On-hardware honest degradation | Kimi K2.6 (Fireworks) | **PARTIAL** — agent targeted the wrong GPU arch (prompts then hardcoded MI300X; fixed, test-pinned), stopped honestly; a one-line human arch fix → `ctest` 100% |
+| Gemma comparison (same scenario as the demo) | Gemma 4 31B (AI Studio) | **STUCK** — **3/7 classes fixed** before the free-tier endpoint 500'd; first attempt managed 1/7 until `<thought>`-markup extraction was hardened |
+
+The security gate behaved identically in every run, whichever brain was driving.
 
 ---
 
@@ -78,12 +87,14 @@ Point it at the other scenarios (copy `config.replay.example.yaml`, change
 - **STUCK** — build never goes green; tests never run, and the report says exactly
   that. Nothing crashes; nothing claims success.
 
-## Real hardware (MI300X)
+## Real hardware
 
-One config switch (`executor.kind: mock → ssh`) runs the identical loop on an AMD
-Instinct box over SSH; another (`llm.base_url`) points the brain at Fireworks or a
-self-hosted vLLM server on the MI300X. The Day-1 runbook, the vLLM serving script,
-and the demo-repo picker are ready:
+One config switch runs the identical loop on real hardware: `executor.kind:
+local` runs Bridge **on** the GPU box itself (the path used for the recorded
+gfx1100 run), and `executor.kind: ssh` drives a remote Instinct box; another
+line (`llm.base_url`) points the brain at Fireworks or a self-hosted vLLM
+server. The MI300X runbook, the vLLM serving script, and the demo-repo picker
+are ready:
 
 - [provision_checklist.md](provision_checklist.md) — step-by-step provisioning.
 - [scripts/serve_vllm_rocm.sh](scripts/serve_vllm_rocm.sh) — serve the brain on AMD.
@@ -121,7 +132,7 @@ identically for both models.
 
 ```bash
 python -m pip install pytest httpx
-python -m pytest -q          # 117 tests
+python -m pytest -q          # 135 tests
 ```
 
 Written to convince a skeptical judge, not just to pass CI: authentic ROCm/clang
