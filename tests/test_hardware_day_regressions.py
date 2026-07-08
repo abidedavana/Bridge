@@ -67,6 +67,32 @@ def test_gnu_ld_style_still_recognised():
     assert p.symbol == "hipblasCreate"
 
 
+def test_ansi_colorized_output_still_parses():
+    """Verbatim from the recorded on-pod cassette: cmake colorized its stderr, so
+    every line began with an escape sequence and the whole run parsed 'unknown'."""
+    colored_header = (
+        "-- Configuring incomplete, errors occurred!\n"
+        "\x1b[31mCMake Error at /usr/share/cmake-3.22/Modules/CMakeDetermineCUDACompiler.cmake:179 (message):\n"
+        "  Failed to find nvcc.\n"
+        "\n"
+        "  Compiler requires the CUDA toolkit.  Please set the CUDAToolkit_ROOT\n"
+        "  variable.\n"
+        "Call Stack (most recent call first):\n"
+        "  CMakeLists.txt:2 (project)\n"
+        "\n"
+        "\x1b[0m\n"
+    )
+    p = parse(colored_header).primary
+    assert p is not None and p.error_class is ErrorClass.CMAKE_CUDA_LANGUAGE
+
+    colored_bare = (
+        '\x1b[0mCMake Error: Cannot determine link language for target "app".\x1b[0m\n'
+        "\x1b[0mCMake Error: CMake can not determine linker language for target: app\x1b[0m\n"
+    )
+    p = parse(colored_bare).primary
+    assert p is not None and p.error_class is ErrorClass.CMAKE_CUDA_LANGUAGE
+
+
 # -- 2. distinct unknown errors must not share one attempt budget -------------
 
 class _ShapeShiftingFailure(Executor):

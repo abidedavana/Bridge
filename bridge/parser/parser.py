@@ -38,6 +38,12 @@ _CUDA_PREFIXES = (
     "cuda", "cuStream", "cuMem", "nvtx", "nvToolsExt", "nppi", "__nv", "__half",
 )
 
+# CMake/clang colorize when they think they have a terminal; captured output can
+# carry ANSI escape codes ("\x1b[31mCMake Error at ...") that defeat every
+# line-anchored pattern below. Strip all CSI sequences first (hardware-day find:
+# the GPU pod's cmake colorized stderr and the whole run parsed as 'unknown').
+_ANSI_CSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
 # -- line patterns (anchored on real ROCm/clang/cmake/ctest output) -----------
 _INCLUDE_FROM = re.compile(r"^In file included from (?P<file>\S+?):(?P<line>\d+)[,:]")
 _CMAKE_HEADER = re.compile(r"^CMake Error at (?P<file>\S+):(?P<line>\d+) \((?P<cmd>\w+)\)")
@@ -81,7 +87,7 @@ def _is_cuda_symbol(sym: str) -> bool:
 
 class ErrorParser:
     def parse(self, text: str) -> ParseResult:
-        lines = text.splitlines()
+        lines = _ANSI_CSI.sub("", text).splitlines()
         diags: list[Diagnostic] = []
         include_chain: list[tuple[str, int]] = []
         passed = total = None
