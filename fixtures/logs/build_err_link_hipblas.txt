@@ -1,0 +1,14 @@
+$ cmake --build build -j
+[ 87%] Building CXX object CMakeFiles/gemm.dir/src/gemm.cpp.o
+[100%] Linking CXX executable gemm
+/usr/bin/ld: warning: librocsolver.so.0, needed by /opt/rocm/lib/libhipblas.so, not found (try using -rpath or -rpath-link)
+/usr/bin/ld: CMakeFiles/gemm.dir/src/gemm.cpp.o: in function `main':
+gemm.cpp:(.text+0x1a4): undefined reference to `hipblasCreate'
+/usr/bin/ld: gemm.cpp:(.text+0x1c8): undefined reference to `hipblasSetVector'
+/usr/bin/ld: gemm.cpp:(.text+0x2f0): undefined reference to `hipblasSgemm'
+/usr/bin/ld: gemm.cpp:(.text+0x33c): undefined reference to `hipblasGetVector'
+/usr/bin/ld: gemm.cpp:(.text+0x37a): undefined reference to `hipblasDestroy'
+clang++: error: linker command failed with exit code 1 (use -v to see invocation)
+make[2]: *** [CMakeFiles/gemm.dir/build.make:98: gemm] Error 1
+make[1]: *** [CMakeFiles/Makefile2:110: CMakeFiles/gemm.dir/all] Error 2
+make: *** [Makefile:91: all] Error 2

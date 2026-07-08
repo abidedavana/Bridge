@@ -1,0 +1,7 @@
+$ cmake --build build -j
+[ 12%] Building CXX object CMakeFiles/saxpy.dir/src/saxpy.cpp.o
+clang++: error: unsupported option '-arch=sm_70' for target 'x86_64-unknown-linux-gnu'
+clang++: error: unsupported option '--generate-code=arch=compute_70,code=sm_70'
+make[2]: *** [CMakeFiles/saxpy.dir/build.make:76: CMakeFiles/saxpy.dir/src/saxpy.cpp.o] Error 1
+make[1]: *** [CMakeFiles/Makefile2:83: CMakeFiles/saxpy.dir/all] Error 2
+make: *** [Makefile:91: all] Error 2

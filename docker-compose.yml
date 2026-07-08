@@ -1,0 +1,11 @@
+# Bridge offline demo. From a fresh clone:
+#     docker compose up
+# then open http://localhost:8000 — you'll see a full CUDA->ROCm migration
+# climbing to SUCCESS live, with no GPU and no API key.
+services:
+  bridge:
+    build: .
+    image: bridge-demo
+    container_name: bridge-demo
+    ports:
+      - "8000:8000"

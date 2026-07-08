@@ -1,0 +1,83 @@
+# Bridge configuration — Gemma brain (ACT II "Best Use of Gemma Models" challenge).
+# Copy to config.gemma.yaml and edit. Same agent, one different line: the model.
+# The patch policy gate is model-independent, so the safety story holds unchanged.
+#
+# BEFORE the live run, verify the model id against the endpoint (model ids retire;
+# a stale id 404s — this exact failure cost us a live run once):
+#   curl -s -H "Authorization: Bearer $BRIDGE_LLM_API_KEY" \
+#     https://api.fireworks.ai/inference/v1/models | grep -i gemma
+#
+# Live comparison run, recorded for replay:
+#   python -m bridge run --config config.gemma.yaml \
+#     --record fixtures/cassettes/gemma.live.json
+
+executor:
+  kind: mock
+  mock:
+    # Which scripted replay to run. Ships with: success, partial, stuck_build.
+    scenario: fixtures/scenarios/success.yaml
+  # Used only when kind: ssh (Milestone 5). Filled in on MI300X provisioning day.
+  ssh:
+    host: 0.0.0.0
+    user: bridge
+    remote_workdir: /workspace/target-repo
+    port: 22
+    key_path: ~/.ssh/bridge_mi300x
+    password_env: null
+    connect_timeout_s: 30
+
+# The working copy Bridge edits. Local dir in mock mode; remote path in ssh mode.
+repo:
+  path: scratch/target-repo
+  offload_arch: gfx942   # CDNA3 / MI300X
+
+# The three target-specific commands Bridge drives. Everything else (git, patch)
+# Bridge issues itself.
+commands:
+  configure: cmake -S . -B build -DCMAKE_CXX_COMPILER=hipcc
+  hipify: hipify-perl -inplace -print-stats $(find src -name '*.cu')
+  build: cmake --build build -j
+  test: ctest --test-dir build --output-on-failure
+
+llm:
+  backend: openai
+  base_url: https://api.fireworks.ai/inference/v1
+  # Gemma 3 27B Instruct — text LLM, 131k context (catalog-verified 2026-07-08).
+  # Newer alternative if the endpoint serves it serverless:
+  #   accounts/fireworks/models/gemma-4-31b-it   (262k context)
+  model: accounts/fireworks/models/gemma-3-27b-it
+  api_key_env: BRIDGE_LLM_API_KEY
+  temperature: 0.0
+  # Gemma is NOT a thinking model (unlike Kimi K2.x): no deliberation tokens to
+  # leave room for. 8192 comfortably fits diagnosis JSON + a 200-line diff cap.
+  max_tokens: 8192
+  # Non-thinking models answer in seconds, not minutes; transient network faults
+  # are still retried by the client with backoff.
+  request_timeout_s: 120
+  display_host: null   # derived from base_url when null
+  cost:
+    mode: priced
+    currency: USD
+    input_per_mtok: 0.90     # Fireworks 16B+ tier at time of writing; confirm on the model page
+    output_per_mtok: 0.90
+
+caps:
+  max_iterations: 40
+  max_attempts_per_cluster: 3
+  max_patch_lines: 200
+  token_budget_per_iteration: 16000
+
+policy:
+  patch_test_files: false          # forbidden by default
+  allow_tolerance_relaxation: false # loosening a tolerance is a cheat, not a fix
+
+# Mechanical trust-boundary controls, enforced on every diff before it is applied
+# (they hold even if the LLM is adversarially steered). See THREAT_MODEL.md.
+# Sensible defaults are baked into the schema; override here only to tighten.
+security:
+  sandbox: false                   # true isolates the untrusted build (Milestone 5)
+  max_new_files: 5
+  # writable_globs / protected_globs / forbidden_insertions default in config.py.
+
+prompts_dir: prompts
+runs_dir: runs

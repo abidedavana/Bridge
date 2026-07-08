@@ -1,0 +1,48 @@
+[project]
+name = "bridge-migrate"
+version = "0.1.0"
+description = "Bridge: an autonomous CUDA to ROCm/HIP migration agent."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Bridge contributors" }]
+
+# Runtime dependencies are deliberately minimal. Each is justified in DECISIONS.md.
+dependencies = [
+    "pydantic>=2.5,<3",   # typed, validated config schema
+    "PyYAML>=6,<7",       # human-friendly config and scenario files
+]
+
+[project.optional-dependencies]
+# The agent brain (LLM client). Kept optional so the mock/executor core stays
+# importable and testable with zero network dependencies.
+llm = [
+    "httpx>=0.27,<0.29",  # OpenAI-compatible HTTP client, no vendor SDK lock-in
+]
+# Remote execution against the MI300X box (Milestone 5).
+ssh = [
+    "paramiko>=3.4,<4",   # pure-python SSH/SFTP, no system ssh binary required
+]
+# Web dashboard (Milestone 4).
+dashboard = [
+    "fastapi>=0.110,<1",
+    "uvicorn>=0.29,<1",
+]
+dev = [
+    "pytest>=8,<9",
+    "httpx>=0.27,<0.29",  # FastAPI TestClient for the dashboard tests
+]
+
+[project.scripts]
+bridge = "bridge.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["bridge*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

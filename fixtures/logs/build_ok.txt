@@ -1,0 +1,13 @@
+$ cmake --build build -j
+[ 12%] Building CXX object CMakeFiles/saxpy.dir/src/saxpy.cpp.o
+[ 25%] Linking CXX executable saxpy
+[ 37%] Building CXX object CMakeFiles/gemm.dir/src/gemm.cpp.o
+[ 50%] Linking CXX executable gemm
+[ 62%] Building CXX object CMakeFiles/warp_reduce.dir/src/warp_reduce.cpp.o
+[ 75%] Linking CXX executable warp_reduce
+[ 87%] Building CXX object CMakeFiles/spmv.dir/src/spmv.cpp.o
+[100%] Linking CXX executable spmv
+[100%] Built target saxpy
+[100%] Built target gemm
+[100%] Built target warp_reduce
+[100%] Built target spmv

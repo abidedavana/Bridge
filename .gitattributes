@@ -1,0 +1,42 @@
+# Enforce LF everywhere. Bridge generates diffs that must apply cleanly on the
+# Linux MI300X box; CRLF is the classic way `git apply` breaks (flagged as the M3
+# patcher risk, D6). We normalize on the way in and check out LF on every
+# platform, including this Windows dev machine.
+* text=auto eol=lf
+
+# Explicit source + config: always LF.
+*.py            text eol=lf
+*.pyi           text eol=lf
+*.md            text eol=lf
+*.yaml          text eol=lf
+*.yml           text eol=lf
+*.toml          text eol=lf
+*.cfg           text eol=lf
+*.ini           text eol=lf
+*.sh            text eol=lf
+*.cpp           text eol=lf
+*.cc            text eol=lf
+*.cu            text eol=lf
+*.cuh           text eol=lf
+*.hpp           text eol=lf
+*.h             text eol=lf
+*.cmake         text eol=lf
+CMakeLists.txt  text eol=lf
+Makefile        text eol=lf
+Dockerfile      text eol=lf
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+
+# Fixture logs are captured tool output: keep byte-exact LF so the parser and
+# any golden diffs stay deterministic across platforms.
+fixtures/**     text eol=lf
+
+# Anything genuinely binary (none today, but future-proof the demo assets).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.mp4 binary
+*.pdf binary
+*.gz  binary
+*.zip binary

@@ -1,0 +1,14 @@
+# Candidate CUDA repos to triage on the MI300X box on Day 1.
+#   python -m bridge shortlist --config config.yaml --repos shortlist.example.yaml
+#
+# Pick small, self-contained CUDA projects that have a test suite (ctest/pytest).
+# Good demo candidates: single-purpose kernels + a couple of library calls
+# (cuBLAS/cuSPARSE) + a warp-level reduction — enough variety for the agent to show
+# off, small enough to build in a minute. Replace these with real URLs.
+repos:
+  - name: vectoradd
+    url: https://github.com/example/cuda-vectoradd
+  - name: reduction
+    url: https://github.com/example/cuda-reduction
+  - name: gemm-sample
+    url: https://github.com/example/cuda-gemm

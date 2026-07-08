@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bridge — CUDA → ROCm</title>
+<style>
+  :root {
+    /* forest-at-dusk: near-neutral dark pine surfaces + one emerald accent.
+       Value hierarchy: bg (darkest) -> surface -> elevated; text bright. */
+    --bg: #0c110e;
+    --surface: #161d18;
+    --surface-2: #0f1512;   /* inset (code blocks) */
+    --elev: #1c241e;
+    --hair: #29332c;        /* hairline borders */
+    --ink: #ecf1ec;         /* primary text */
+    --ink-2: #c2ccc2;
+    --muted: #7f8d81;       /* secondary text */
+    --accent: #3fdd99;      /* emerald — the single pop */
+    --accent-soft: rgba(63,221,153,0.13);
+    --ok: #46d18b;
+    --warn: #e8b45a;        /* amber = working / caution */
+    --bad: #f0714a;         /* coral = error */
+    --amd: #e2673f;
+    --shadow: 0 10px 30px -16px rgba(0,0,0,0.75);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0; color: var(--ink);
+    background:
+      radial-gradient(900px 500px at 78% -8%, rgba(63,221,153,0.06), transparent 60%),
+      radial-gradient(1100px 600px at 15% -10%, rgba(232,180,90,0.04), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+    font: 14px/1.55 "Segoe UI Variable Text","Segoe UI",Inter,system-ui,-apple-system,Roboto,sans-serif;
+  }
+  b, strong { font-weight: 650; }
+  .mono { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+
+  header {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; gap: 18px; padding: 16px 26px;
+    border-bottom: 1px solid var(--hair);
+    background: rgba(12,17,14,0.82); backdrop-filter: blur(10px);
+  }
+  .mark { width: 32px; height: 32px; border-radius: 9px; flex: none; display: grid; place-items: center;
+    background: linear-gradient(145deg, var(--accent), #1c9c6a);
+    box-shadow: 0 0 18px -5px var(--accent); }
+  .mark svg { width: 18px; height: 18px; fill: none; stroke: #06231a; stroke-width: 2.4;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .ic { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .spin { animation: spin 1.05s linear infinite; transform-origin: 50% 50%; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .brand { font-weight: 750; font-size: 17px; letter-spacing: .2px; white-space: nowrap; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+  .spacer { flex: 1; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px;
+    border: 1px solid var(--hair); border-radius: 999px; background: var(--surface);
+    font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amd);
+    box-shadow: 0 0 10px var(--amd); animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .badge b { color: var(--ink); font-weight: 600; }
+  .pill { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    letter-spacing: .5px; border: 1px solid transparent; }
+  .pill.SUCCESS { color: var(--accent); background: var(--accent-soft); border-color: rgba(63,221,153,0.3); }
+  .pill.RUNNING, .pill.PARTIAL { color: var(--warn); background: rgba(232,180,90,0.12); border-color: rgba(232,180,90,0.3); }
+  .pill.STUCK, .pill.NO_RUN { color: var(--bad); background: rgba(240,113,74,0.12); border-color: rgba(240,113,74,0.3); }
+
+  main { padding: 22px; display: grid; gap: 18px; max-width: 1200px; margin: 0 auto;
+    grid-template-columns: 1.7fr 1fr; }
+
+  .hero { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px;
+    background: linear-gradient(100deg, rgba(63,221,153,0.09), rgba(63,221,153,0.02) 55%), var(--surface);
+    border: 1px solid var(--hair); border-radius: 16px; padding: 18px 22px; box-shadow: var(--shadow); }
+  .hero .glyph { display: flex; align-items: center; }
+  .hero .big-line { font-size: 19px; font-weight: 750; letter-spacing: .2px; }
+  .hero .sub-line { color: var(--muted); font-size: 13.5px; margin-top: 3px; }
+
+  .card { background: var(--surface); border: 1px solid var(--hair); border-radius: 16px;
+    padding: 18px 20px; box-shadow: var(--shadow); }
+  .card h2 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .14em;
+    color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 7px; }
+  .card h2::before { content: ""; width: 6px; height: 6px; border-radius: 2px; background: var(--accent); flex: none; }
+  .cap { color: var(--muted); font-size: 12px; margin: 5px 0 15px; line-height: 1.4; }
+  .wide { grid-column: 1 / -1; }
+
+  #diag .friendly { font-size: 22px; font-weight: 780; color: var(--ink); line-height: 1.25; }
+  #diag .klass { color: var(--accent); font-size: 12px; margin-top: 3px; }
+  #diag .loc { color: var(--warn); font-size: 13px; margin: 10px 0; }
+  #diag .msg { color: var(--ink-2); font-size: 12.5px; background: var(--surface-2);
+    padding: 11px 13px; border-radius: 10px; border: 1px solid var(--hair);
+    white-space: pre-wrap; word-break: break-word; }
+  #diag .iter { color: var(--muted); font-size: 12px; margin-bottom: 10px;
+    text-transform: uppercase; letter-spacing: .08em; }
+
+  .metric { font-size: 34px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+  .metric.accent { color: var(--accent); }
+  .metric-sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .divider { height: 1px; background: var(--hair); margin: 16px 0; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { padding: 5px 11px; border-radius: 9px; font-size: 11.5px; font-weight: 600;
+    background: var(--surface-2); border: 1px solid var(--hair); color: var(--ink-2); }
+  .chip.fail { color: var(--bad); border-color: rgba(240,113,74,0.28); background: rgba(240,113,74,0.07); }
+  .chip.ok { color: var(--accent); border-color: rgba(63,221,153,0.3); background: rgba(63,221,153,0.08); }
+  .legend { display: flex; gap: 18px; color: var(--muted); font-size: 11.5px; margin-top: 12px; }
+  .legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+  .classlist { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+  .classlist .lbl { color: var(--muted); font-size: 12px; margin-bottom: 2px; }
+  .classlist .row { font-size: 12.5px; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+  .classlist .row svg { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--accent);
+    stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .muted { color: var(--muted); }
+  svg text { fill: var(--muted); font-size: 10px; }
+
+  .diffph { color: var(--muted); font-size: 13px; font-style: italic; }
+  #diff .dhead { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
+  #diff pre { margin: 0; font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+    background: var(--surface-2); border: 1px solid var(--hair); border-radius: 10px; padding: 12px 14px; }
+  .dl-add { color: var(--ok); } .dl-del { color: var(--bad); }
+  .dl-h { color: var(--accent); } .dl-ctx { color: var(--muted); }
+  footer { text-align: center; color: var(--muted); font-size: 11px; padding: 6px 0 26px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="mark"><svg viewBox="0 0 24 24"><path d="M4 12h13M11 6l6 6-6 6"/></svg></div>
+  <div>
+    <div class="brand">Bridge — CUDA → ROCm migration</div>
+    <div class="sub">An AI agent autonomously rewrites CUDA code to build &amp; pass its tests on AMD GPUs.</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="badge" id="endpoint"><span class="dot"></span><span>connecting…</span></div>
+  <div class="pill NO_RUN" id="status">—</div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="glyph" id="hero-glyph"></div>
+    <div>
+      <div class="big-line" id="hero-line">Waiting for a migration to start…</div>
+      <div class="sub-line" id="hero-sub">The agent clones a CUDA project and ports it to AMD's ROCm, one error at a time.</div>
+    </div>
+  </section>
+
+  <section class="card" id="diag" style="grid-row: span 2;">
+    <h2>What it's fixing right now</h2>
+    <div class="cap">The single root-cause error the agent is working on this step.</div>
+    <div id="diag-body"><div class="muted">Waiting for a run…</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Tests passing</h2>
+    <div class="cap">Climbs toward 100% as the agent repairs the code, one fix per step.</div>
+    <div id="chart"><div class="muted">Build isn't green yet — tests haven't run.</div></div>
+  </section>
+
+  <section class="card">
+    <h2>AI usage</h2>
+    <div class="cap">How much the AI "brain" has thought, and what it cost.</div>
+    <div class="metric" id="tokens">0</div>
+    <div class="metric-sub" id="tokens-sub">tokens used</div>
+    <div class="divider"></div>
+    <div class="metric accent" id="cost">—</div>
+    <div class="metric-sub" id="cost-sub"></div>
+  </section>
+
+  <section class="card">
+    <h2>Automatic first pass · HIPIFY</h2>
+    <div class="cap">AMD's HIPIFY converted this much mechanically — the agent does the hard rest.</div>
+    <div class="metric accent" id="hipify">—</div>
+    <div class="metric-sub" id="hipify-sub">converted before the agent started</div>
+  </section>
+
+  <section class="card wide">
+    <h2>Every fix, step by step</h2>
+    <div class="cap">One chip per iteration, in order.</div>
+    <div class="chips" id="timeline"><span class="muted">—</span></div>
+    <div class="legend">
+      <span><i style="background:var(--bad)"></i>an error it tackled</span>
+      <span><i style="background:var(--accent)"></i>tests passing</span>
+    </div>
+    <div class="classlist" id="classlist"></div>
+  </section>
+
+  <section class="card wide">
+    <h2>The exact change it just made</h2>
+    <div class="cap">The agent's latest code edit, shown next to the error it fixes.</div>
+    <div class="diffph" id="diff">No change yet — the agent's edits appear here as it works.</div>
+  </section>
+</main>
+<footer id="foot"></footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const PRETTY = (s) => (s || "").replace(/_/g, " ");
+
+const GLOSS = {
+  cmake_cuda_language: "CMake still expects the CUDA toolchain",
+  cmake_cuda_toolkit: "CMake can't find the CUDA toolkit",
+  arch_flag_unsupported: "NVIDIA-only compiler flag",
+  missing_cuda_header: "A CUDA header isn't found",
+  undeclared_cuda_identifier: "An unmapped CUDA API call",
+  no_matching_function: "Wrong function arguments",
+  kernel_launch_syntax: "CUDA kernel-launch syntax",
+  link_undefined_reference: "A library isn't linked",
+  hipify_unconverted: "HIPIFY left something unconverted",
+  warp_size_assumption: "Assumes 32-lane warps (AMD warps are 64)",
+  test_tolerance_failure: "A numerical test is failing",
+  test_failure: "A test is failing",
+  unknown_compile_error: "A compile error",
+};
+const friendly = (k) => GLOSS[k] || PRETTY(k);
+const C = { accent: "#3fdd99", grid: "#29332c", ink: "#ecf1ec" };
+const CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4 4L19 7"/></svg>';
+const ICON = {
+  check: '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.4l2.7 2.7L16.2 9"/></svg>',
+  spin:  '<svg class="ic spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9"/></svg>',
+  half:  '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>',
+  alert: '<svg class="ic" viewBox="0 0 24 24"><path d="M12 3.6l8.6 15H3.4z"/><path d="M12 9.7v4.2"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></svg>',
+  clock: '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.6V12l3 2"/></svg>',
+};
+
+function passPoints(iters) {
+  return iters.filter(it => it.total).map(it => ({ i: it.iteration, pct: 100 * it.passed / it.total }));
+}
+
+function renderChart(iters) {
+  const pts = passPoints(iters);
+  const el = $("chart");
+  if (!pts.length) { el.innerHTML = '<div class="muted">Build isn\'t green yet — tests haven\'t run.</div>'; return; }
+  const W = 360, H = 156, P = 28;
+  const n = pts.length;
+  const x = (idx) => P + (W - 2*P) * (n === 1 ? 0.5 : idx/(n-1));
+  const y = (pct) => (H - P) - (H - 2*P) * (pct/100);
+  let path = pts.map((p,idx) => `${idx?'L':'M'}${x(idx).toFixed(1)},${y(p.pct).toFixed(1)}`).join(' ');
+  let area = path + ` L${x(n-1).toFixed(1)},${H-P} L${x(0).toFixed(1)},${H-P} Z`;
+  let dots = pts.map((p,idx) => `<circle cx="${x(idx).toFixed(1)}" cy="${y(p.pct).toFixed(1)}" r="3.6" fill="${C.accent}" stroke="#0c110e" stroke-width="2"/>`).join('');
+  let labels = pts.map((p,idx) => `<text x="${x(idx).toFixed(1)}" y="${H-P+15}" text-anchor="middle">#${p.i}</text>`).join('');
+  const gy = [0,50,100].map(v => `<line x1="${P}" y1="${y(v).toFixed(1)}" x2="${W-P}" y2="${y(v).toFixed(1)}" stroke="${C.grid}" stroke-dasharray="2 4"/>`).join('');
+  const last = pts[pts.length-1].pct;
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">
+      <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${C.accent}" stop-opacity="0.28"/>
+        <stop offset="1" stop-color="${C.accent}" stop-opacity="0"/>
+      </linearGradient></defs>
+      ${gy}
+      <text x="2" y="${y(100)+3}">100</text><text x="6" y="${y(0)+3}">0</text>
+      <path d="${area}" fill="url(#cg)"/>
+      <path d="${path}" fill="none" stroke="${C.accent}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      ${dots}${labels}
+    </svg>
+    <div class="metric-sub">now <b style="color:${C.ink}">${last.toFixed(0)}%</b> of tests passing · step # on the axis</div>`;
+}
+
+function renderTimeline(iters) {
+  const tl = $("timeline");
+  if (!iters.length) { tl.innerHTML = '<span class="muted">—</span>'; return; }
+  tl.innerHTML = iters.map(it => {
+    const label = it.total ? `#${it.iteration} · ${it.passed}/${it.total} tests`
+                           : `#${it.iteration} · ${friendly(it.error_class) || it.phase}`;
+    const cls = it.outcome === 'ok' ? 'ok' : 'fail';
+    return `<span class="chip ${cls}" title="${it.phase}: ${PRETTY(it.error_class)||''} ${it.location||''}">${label}</span>`;
+  }).join('');
+  const classes = [...new Set(iters.map(i => i.error_class).filter(Boolean))];
+  $("classlist").innerHTML = classes.length
+    ? '<div class="lbl">Error types the agent fixed on its own:</div>' +
+      classes.map(c => `<div class="row">${CHECK_SVG}${friendly(c)}</div>`).join('')
+    : '';
+}
+
+function renderDiag(s) {
+  const b = $("diag-body");
+  const c = s.current;
+  if (!c) { b.innerHTML = '<div class="muted">Waiting for a run…</div>'; return; }
+  if (!c.error_class) {
+    b.innerHTML = `<div class="iter">step ${c.iteration}</div>
+      <div class="friendly" style="color:var(--accent)">No blocking error</div>
+      <div class="msg">${c.total ? `${c.passed} of ${c.total} tests passing` : 'the build is green'}</div>`;
+    return;
+  }
+  b.innerHTML = `<div class="iter">step ${c.iteration} · during ${c.phase}</div>
+    <div class="friendly">${friendly(c.error_class)}</div>
+    <div class="klass mono">${PRETTY(c.error_class)}</div>
+    <div class="loc mono">${c.location || ''}</div>
+    <div class="msg mono">${(c.message || '').replace(/</g,'&lt;')}</div>`;
+}
+
+function renderLatestDiff(it) {
+  const el = $("diff");
+  if (!it || !it.diff) {
+    el.className = 'diffph';
+    el.textContent = 'No change yet — the agent\'s edits appear here as it works.';
+    return;
+  }
+  el.className = '';
+  const lines = it.diff.split('\n').map(l => {
+    let c = 'dl-ctx';
+    if (l.startsWith('+++') || l.startsWith('---') || l.startsWith('diff ') ||
+        l.startsWith('@@') || l.startsWith('new file')) c = 'dl-h';
+    else if (l.startsWith('+')) c = 'dl-add';
+    else if (l.startsWith('-')) c = 'dl-del';
+    return `<span class="${c}">${l.replace(/</g, '&lt;')}</span>`;
+  }).join('\n');
+  el.innerHTML = `<div class="dhead">fixing ` +
+    `<b style="color:var(--ink)">${friendly(it.error_class)}</b>` +
+    `${it.location ? ' in <b style="color:var(--warn)">' + it.location + '</b>' : ''} · step ${it.iteration}</div>` +
+    `<pre>${lines}</pre>`;
+}
+
+function renderCost(s) {
+  const toks = (s.total_prompt_tokens||0) + (s.total_completion_tokens||0);
+  $("tokens").textContent = toks.toLocaleString();
+  $("tokens-sub").textContent = `tokens used · ${(s.total_prompt_tokens||0).toLocaleString()} read + ${(s.total_completion_tokens||0).toLocaleString()} written`;
+  if (s.cost_mode === 'self_hosted') {
+    $("cost").textContent = '$0.00';
+    $("cost-sub").textContent = 'running on AMD — no per-token cost';
+  } else {
+    $("cost").textContent = '$' + (s.total_cost||0).toFixed(4);
+    $("cost-sub").textContent = (s.simulated_cost ? 'estimated · ' : '') + 'cost so far (' + (s.cost_currency||'USD') + ')';
+  }
+}
+
+const HERO = {
+  RUNNING: ["spin", "var(--warn)", "Working…", "The agent is fixing build errors one by one, then re-running the tests."],
+  SUCCESS: ["check", "var(--accent)", "Done — it builds and every test passes on AMD", "The CUDA project was ported to ROCm autonomously."],
+  PARTIAL: ["half", "var(--warn)", "Mostly there — an honest partial result", "It fixed most of it; a few tests remain and are reported, not hidden."],
+  STUCK: ["alert", "var(--bad)", "Stopped on an error it couldn't clear", "It reports exactly which error blocked it — no false claims of success."],
+  NO_RUN: ["clock", "var(--muted)", "Waiting for a migration to start…", "The agent clones a CUDA project and ports it to AMD's ROCm, one error at a time."],
+};
+
+async function tick() {
+  let s;
+  try { s = await (await fetch('/api/state', {cache:'no-store'})).json(); }
+  catch (e) { return; }
+  const status = s.status || 'NO_RUN';
+  $("status").textContent = status;
+  $("status").className = 'pill ' + status;
+  const h = HERO[status] || HERO.NO_RUN;
+  $("hero-glyph").innerHTML = ICON[h[0]];
+  $("hero-glyph").style.color = h[1];
+  $("hero-line").textContent = h[2];
+  $("hero-sub").textContent = h[3];
+  if (status === 'NO_RUN') {
+    $("endpoint").innerHTML = '<span class="dot"></span><span>no active run</span>';
+    return;
+  }
+  const host = s.llm_host || '—';
+  const brainOnAmd = /gfx|mi300|vllm|amd|:8000/i.test(host);
+  $("endpoint").innerHTML = `<span class="dot"></span>
+    <span>brain: <b>${s.llm_model || s.llm_backend || '—'}</b>${brainOnAmd ? ' · on AMD' : ''}</span>`;
+  renderDiag(s);
+  renderChart(s.iterations || []);
+  renderTimeline(s.iterations || []);
+  renderCost(s);
+  $("hipify").textContent = (s.hipify_conversion_pct != null) ? s.hipify_conversion_pct + '%' : '—';
+  $("hipify-sub").textContent = (s.hipify_warnings != null)
+    ? `converted automatically · ${s.hipify_warnings} warnings left for the agent` : 'converted before the agent started';
+  renderLatestDiff([...(s.iterations || [])].reverse().find(it => it.diff));
+  $("foot").textContent = `run ${s.run_id||''} · scenario ${s.scenario||''} · executor ${s.executor||''}`;
+}
+setInterval(tick, 700); tick();
+</script>
+</body>
+</html>

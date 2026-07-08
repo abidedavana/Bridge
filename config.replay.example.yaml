@@ -1,0 +1,42 @@
+# Offline replay config — runs the full agent loop with NO GPU and NO API key.
+# The brain is a recorded cassette; the hardware is the mock executor.
+#   python -m bridge run --config config.replay.example.yaml
+
+executor:
+  kind: mock
+  mock:
+    scenario: fixtures/scenarios/success.yaml
+
+repo:
+  path: scratch/target-run
+  offload_arch: gfx942
+
+commands:
+  hipify: hipify-perl -inplace -print-stats $(find src -name '*.cu')
+  build: cmake --build build -j
+  test: ctest --test-dir build --output-on-failure
+
+llm:
+  backend: replay
+  # The cassette is a recording of a REAL Fireworks run (Kimi K2.6) that reached
+  # SUCCESS. model/display_host keep the dashboard badge honest about which brain
+  # actually produced these diffs.
+  model: accounts/fireworks/models/kimi-k2p6
+  display_host: api.fireworks.ai (recorded)
+  replay:
+    cassette: fixtures/cassettes/success.json
+    strict: true
+  cost:
+    mode: priced
+    # Kimi K2.6 on Fireworks: $0.95/M input, $4.00/M output (fireworks.ai/models/
+    # fireworks/kimi-k2p6, checked 2026-07-08) — so the replayed cost figure is
+    # what the recorded run actually cost at list price.
+    input_per_mtok: 0.95
+    output_per_mtok: 4.00
+
+caps:
+  max_iterations: 40
+  max_attempts_per_cluster: 3
+
+prompts_dir: prompts
+runs_dir: runs

@@ -1,0 +1,14 @@
+$ cmake -S . -B build -DCMAKE_CXX_COMPILER=hipcc
+-- The CXX compiler identification is Clang 17.0.0
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /opt/rocm/bin/hipcc - skipped
+CMake Error at CMakeLists.txt:3 (enable_language):
+  No CMAKE_CUDA_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "CUDACXX" or the CMake cache entry CMAKE_CUDA_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Configuring incomplete, errors occurred!
+See also "/workspace/repo/build/CMakeFiles/CMakeError.log".

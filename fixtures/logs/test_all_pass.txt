@@ -1,0 +1,16 @@
+$ ctest --output-on-failure
+Test project /workspace/repo/build
+    Start 1: saxpy_correctness
+1/5 Test #1: saxpy_correctness ................   Passed    0.04 sec
+    Start 2: gemm_correctness
+2/5 Test #2: gemm_correctness .................   Passed    0.11 sec
+    Start 3: warp_reduce_correctness
+3/5 Test #3: warp_reduce_correctness ..........   Passed    0.03 sec
+    Start 4: spmv_correctness
+4/5 Test #4: spmv_correctness .................   Passed    0.05 sec
+    Start 5: reduce_correctness
+5/5 Test #5: reduce_correctness ...............   Passed    0.03 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Total Test time (real) =   0.26 sec

@@ -1,0 +1,24 @@
+name: stuck_build
+description: >
+  The hardest degradation path: the build never goes green. The agent fixes the
+  CMake and header issues, then hits a linker failure it cannot resolve within the
+  attempt cap (sticky). Tests never run. The run must still end in a complete
+  report: HIPIFY %, error classes fixed autonomously, and the stuck link cluster
+  named explicitly. Nothing crashes; nothing claims success.
+
+repo_seed: ../repos/success
+
+hipify:
+  log: ../logs/hipify_run.txt
+  exit_code: 0
+
+stages:
+  - name: cmake_cuda_language
+    build: { log: ../logs/build_err_cmake_cuda_lang.txt, exit_code: 1 }
+
+  - name: missing_cublas_header
+    build: { log: ../logs/build_err_missing_cublas_header.txt, exit_code: 1 }
+
+  - name: link_hipblas_stuck
+    build: { log: ../logs/build_err_link_hipblas.txt, exit_code: 1 }
+    sticky: true

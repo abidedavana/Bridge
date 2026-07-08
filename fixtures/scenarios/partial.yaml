@@ -1,0 +1,33 @@
+name: partial
+description: >
+  A realistic "graceful degradation" run: the build goes green and most tests
+  pass, but one test fails on an fp32 reduction-order tolerance mismatch. Policy
+  forbids loosening tolerances (that's a cheat, not a fix), so after the attempt
+  cap this cluster is marked STUCK and the run ends PARTIAL at 80%. This is the
+  outcome the pitch is built around -- an honest, complete report on a run that
+  did not fully succeed.
+
+repo_seed: ../repos/success
+
+hipify:
+  log: ../logs/hipify_run.txt
+  exit_code: 0
+
+stages:
+  - name: cmake_cuda_language
+    build: { log: ../logs/build_err_cmake_cuda_lang.txt, exit_code: 1 }
+
+  - name: missing_cublas_header
+    build: { log: ../logs/build_err_missing_cublas_header.txt, exit_code: 1 }
+
+  - name: link_hipblas
+    build: { log: ../logs/build_err_link_hipblas.txt, exit_code: 1 }
+
+  - name: tests_60
+    build: { log: ../logs/build_ok.txt, exit_code: 0 }
+    test: { log: ../logs/test_partial_60.txt, exit_code: 8, passed: 3, total: 5 }
+
+  - name: tests_80_then_stuck
+    build: { log: ../logs/build_ok.txt, exit_code: 0 }
+    test: { log: ../logs/test_stuck_tolerance.txt, exit_code: 8, passed: 4, total: 5 }
+    sticky: true

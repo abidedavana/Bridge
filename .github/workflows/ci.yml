@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install "pydantic>=2,<3" "PyYAML>=6,<7" "fastapi>=0.110,<1" "uvicorn>=0.29,<1" "httpx>=0.27,<0.29" "pytest>=8,<9"
+
+      - name: Configure git (the agent makes real commits)
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name CI
+
+      - name: Unit + property + e2e tests
+        run: python -m pytest -q
+
+      - name: Deterministic end-to-end (offline replay must reach SUCCESS)
+        run: |
+          python -m bridge run --config config.replay.example.yaml | tee run.txt
+          grep -q "outcome: SUCCESS" run.txt

@@ -1,0 +1,20 @@
+$ hipify-perl -inplace -print-stats src/attention.cu
+
+[HIPIFY] info: file 'src/attention.cu' statistics:
+  CONVERTED refs count: 14
+  UNCONVERTED refs count: 2
+  CONVERSION %: 87
+  REPLACED bytes: 288
+  TOTAL bytes: 5142
+  CHANGED lines of code: 15
+  WARNINGS: 2
+  info: converted 14 CUDA->HIP refs ( device:4 memory:5 stream:2 include:1 include_cuda_main_header:1 kernel_launch:1 )
+  warning: src/attention.cu:73: unconverted identifier 'nvtxRangePushA' : no HIP equivalent auto-mapped (use roctx)
+  warning: src/attention.cu:96: unconverted identifier 'nvtxRangePop' : no HIP equivalent auto-mapped (use roctx)
+
+[HIPIFY] info: TOTAL statistics:
+  CONVERTED refs count: 14
+  UNCONVERTED refs count: 2
+  CONVERSION %: 87
+  FILES: 1
+  WARNINGS: 2

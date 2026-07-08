@@ -1,0 +1,41 @@
+name: success
+description: >
+  A full CUDA->ROCm port that reaches green build and 100% tests. Walks the agent
+  through five distinct build-error classes, then a climbing test pass-rate
+  (60% -> 80% -> 100%). Each stage advances after one accepted commit, modelling
+  "the fix worked, the next error surfaced". Terminal SUCCESS.
+
+repo_seed: ../repos/success
+
+hipify:
+  log: ../logs/hipify_run.txt
+  exit_code: 0
+
+stages:
+  - name: cmake_cuda_language
+    build: { log: ../logs/build_err_cmake_cuda_lang.txt, exit_code: 1 }
+
+  - name: arch_flag_unsupported
+    build: { log: ../logs/build_err_arch_flag.txt, exit_code: 1 }
+
+  - name: missing_cublas_header
+    build: { log: ../logs/build_err_missing_cublas_header.txt, exit_code: 1 }
+
+  - name: undeclared_cublas_api
+    build: { log: ../logs/build_err_undeclared_cublas.txt, exit_code: 1 }
+
+  - name: link_hipblas
+    build: { log: ../logs/build_err_link_hipblas.txt, exit_code: 1 }
+
+  - name: tests_60
+    build: { log: ../logs/build_ok.txt, exit_code: 0 }
+    test: { log: ../logs/test_partial_60.txt, exit_code: 8, passed: 3, total: 5 }
+
+  - name: tests_80
+    build: { log: ../logs/build_ok.txt, exit_code: 0 }
+    test: { log: ../logs/test_partial_80.txt, exit_code: 8, passed: 4, total: 5 }
+
+  - name: tests_all_pass
+    build: { log: ../logs/build_ok.txt, exit_code: 0 }
+    test: { log: ../logs/test_all_pass.txt, exit_code: 0, passed: 5, total: 5 }
+    sticky: true

@@ -1,0 +1,82 @@
+# Bridge configuration -- copy to config.yaml and edit.
+# Two headline switches:
+#   executor.kind : mock (fixtures, no GPU)  |  ssh (the MI300X box)
+#   llm.base_url  : Fireworks (default)      |  self-hosted vLLM on the MI300X
+
+executor:
+  kind: mock
+  mock:
+    # Which scripted replay to run. Ships with: success, partial, stuck_build.
+    scenario: fixtures/scenarios/success.yaml
+  # Used only when kind: ssh (Milestone 5). Filled in on MI300X provisioning day.
+  ssh:
+    host: 0.0.0.0
+    user: bridge
+    remote_workdir: /workspace/target-repo
+    port: 22
+    key_path: ~/.ssh/bridge_mi300x
+    password_env: null
+    connect_timeout_s: 30
+
+# The working copy Bridge edits. Local dir in mock mode; remote path in ssh mode.
+repo:
+  path: scratch/target-repo
+  offload_arch: gfx942   # CDNA3 / MI300X
+
+# The three target-specific commands Bridge drives. Everything else (git, patch)
+# Bridge issues itself.
+commands:
+  configure: cmake -S . -B build -DCMAKE_CXX_COMPILER=hipcc
+  hipify: hipify-perl -inplace -print-stats $(find src -name '*.cu')
+  build: cmake --build build -j
+  test: ctest --test-dir build --output-on-failure
+
+llm:
+  # backend: openai (any OpenAI-compatible endpoint) | replay (recorded cassette,
+  # the deterministic CI path -- see fixtures/cassettes/ and Milestone 6).
+  backend: openai
+  # Default: Fireworks AI -- the endpoint guaranteed to work for the demo.
+  # To flip the brain onto AMD hardware, point base_url at the vLLM URL printed
+  # by scripts/serve_vllm_rocm.sh and set display_host accordingly.
+  base_url: https://api.fireworks.ai/inference/v1
+  model: accounts/fireworks/models/kimi-k2p6
+  api_key_env: BRIDGE_LLM_API_KEY
+  temperature: 0.0
+  # Thinking-style models (Kimi K2.x) deliberate at length before emitting the
+  # diff; 4096 truncated them mid-thought. Give the brain room to think.
+  max_tokens: 16384
+  # Thinking models routinely take minutes on a hard patch; transient network
+  # faults are retried by the client with backoff.
+  request_timeout_s: 300
+  display_host: null   # derived from base_url when null
+  # replay:            # required only when backend: replay
+  #   cassette: fixtures/cassettes/success.yaml
+  #   strict: true
+  cost:
+    # priced: hosted API bills per token (show $). self_hosted: vLLM on the
+    # MI300X -- ~zero marginal token cost, dashboard shows throughput instead.
+    mode: priced
+    currency: USD
+    input_per_mtok: 0.20     # example Fireworks-class rate; set to your endpoint's
+    output_per_mtok: 0.20
+
+caps:
+  max_iterations: 40
+  max_attempts_per_cluster: 3
+  max_patch_lines: 200
+  token_budget_per_iteration: 16000
+
+policy:
+  patch_test_files: false          # forbidden by default
+  allow_tolerance_relaxation: false # loosening a tolerance is a cheat, not a fix
+
+# Mechanical trust-boundary controls, enforced on every diff before it is applied
+# (they hold even if the LLM is adversarially steered). See THREAT_MODEL.md.
+# Sensible defaults are baked into the schema; override here only to tighten.
+security:
+  sandbox: false                   # true isolates the untrusted build (Milestone 5)
+  max_new_files: 5
+  # writable_globs / protected_globs / forbidden_insertions default in config.py.
+
+prompts_dir: prompts
+runs_dir: runs

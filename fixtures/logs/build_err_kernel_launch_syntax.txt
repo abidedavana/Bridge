@@ -1,0 +1,12 @@
+$ cmake --build build -j
+[ 12%] Building CXX object CMakeFiles/saxpy.dir/src/saxpy.cpp.o
+/workspace/repo/src/saxpy.cpp:64:11: error: expected expression
+   64 |     saxpy<<<grid, block>>>(n, a, d_x, d_y);
+      |           ^
+/workspace/repo/src/saxpy.cpp:64:5: error: use of undeclared identifier 'saxpy'
+   64 |     saxpy<<<grid, block>>>(n, a, d_x, d_y);
+      |     ^
+2 errors generated when compiling for gfx942.
+make[2]: *** [CMakeFiles/saxpy.dir/build.make:76: CMakeFiles/saxpy.dir/src/saxpy.cpp.o] Error 1
+make[1]: *** [CMakeFiles/Makefile2:83: CMakeFiles/saxpy.dir/all] Error 2
+make: *** [Makefile:91: all] Error 2

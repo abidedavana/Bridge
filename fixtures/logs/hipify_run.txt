@@ -1,0 +1,55 @@
+$ hipify-perl -inplace -print-stats src/saxpy.cu src/gemm.cu src/warp_reduce.cu src/spmv.cu
+
+[HIPIFY] info: file 'src/saxpy.cu' statistics:
+  CONVERTED refs count: 11
+  UNCONVERTED refs count: 0
+  CONVERSION %: 100
+  REPLACED bytes: 214
+  TOTAL bytes: 3187
+  CHANGED lines of code: 12
+  WARNINGS: 0
+  info: converted 11 CUDA->HIP refs ( error:1 device:2 memory:4 stream:1 include:1 include_cuda_main_header:1 kernel_launch:1 )
+
+[HIPIFY] info: file 'src/gemm.cu' statistics:
+  CONVERTED refs count: 9
+  UNCONVERTED refs count: 4
+  CONVERSION %: 69
+  REPLACED bytes: 178
+  TOTAL bytes: 4022
+  CHANGED lines of code: 10
+  WARNINGS: 4
+  info: converted 9 CUDA->HIP refs ( error:1 device:2 memory:3 include:1 include_cuda_main_header:1 kernel_launch:1 )
+  warning: src/gemm.cu:4: unconverted 'cublas_v2.h' : no HIP equivalent header auto-mapped
+  warning: src/gemm.cu:31: unconverted identifier 'cublasCreate' : 1
+  warning: src/gemm.cu:52: unconverted identifier 'cublasSgemm' : 1
+  warning: src/gemm.cu:74: unconverted identifier 'cublasDestroy' : 1
+
+[HIPIFY] info: file 'src/warp_reduce.cu' statistics:
+  CONVERTED refs count: 7
+  UNCONVERTED refs count: 1
+  CONVERSION %: 87
+  REPLACED bytes: 96
+  TOTAL bytes: 2564
+  CHANGED lines of code: 6
+  WARNINGS: 1
+  info: converted 7 CUDA->HIP refs ( device:3 memory:2 include:1 include_cuda_main_header:1 )
+  warning: src/warp_reduce.cu:57: __shfl_down_sync mask width assumes 32-lane warp; review for warpSize 64
+
+[HIPIFY] info: file 'src/spmv.cu' statistics:
+  CONVERTED refs count: 10
+  UNCONVERTED refs count: 2
+  CONVERSION %: 83
+  REPLACED bytes: 203
+  TOTAL bytes: 3711
+  CHANGED lines of code: 11
+  WARNINGS: 2
+  info: converted 10 CUDA->HIP refs ( error:1 device:2 memory:4 stream:1 include:1 include_cuda_main_header:1 )
+  warning: src/spmv.cu:12: unconverted 'cusparse.h' : no HIP equivalent header auto-mapped
+  warning: src/spmv.cu:88: unconverted identifier 'cusparseCreate' : 1
+
+[HIPIFY] info: TOTAL statistics:
+  CONVERTED refs count: 37
+  UNCONVERTED refs count: 7
+  CONVERSION %: 84
+  FILES: 4
+  WARNINGS: 7
