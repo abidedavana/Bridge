@@ -90,16 +90,32 @@ and the demo-repo picker are ready:
 - `python -m bridge shortlist --config config.example.yaml --repos shortlist.example.yaml`
   — rank candidate CUDA repos "closest to green, most interesting failures".
 
-## Swap the brain in one line (Gemma)
+## Best Use of Gemma — the model-comparison run
 
 The brain is any OpenAI-compatible endpoint, and the safety gate never trusts it
-either way — so swapping models is a one-line config change, not a refactor.
-[config.gemma.example.yaml](config.gemma.example.yaml) points the identical agent
-at **Google's Gemma 3 27B** on Fireworks for a recorded comparison run; on
-hardware day, `MODEL=google/gemma-3-27b-it ./scripts/serve_vllm_rocm.sh` serves
-Gemma **on** the MI300X — Gemma thinking on AMD, porting code to AMD. The point
-is architectural: diagnosis quality varies by model, but the mechanical patch
-policy gate holds regardless of which brain is driving.
+either way — so swapping models is a one-line config change, not a refactor. For
+the Gemma challenge we ran the identical migration with **Gemma 4 31B** (Google
+AI Studio) as the brain, recorded at
+[fixtures/cassettes/gemma.live.json](fixtures/cassettes/gemma.live.json)
+(config: [config.gemma.laptop.yaml](config.gemma.laptop.yaml)).
+
+Access path, honestly: the hackathon names Fireworks as the Gemma route, but
+this account's Fireworks *serverless* endpoint listed no Gemma model (every
+Gemma id returned 404 NOT_FOUND when probed on 2026-07-09; an on-demand
+dedicated deployment is a paid spin-up we skipped), so the comparison ran
+against Google AI Studio's hosted **Gemma 4 31B** instead — same agent, same
+scenario, one config line.
+
+The honest result: Gemma 4 fixed **3 of the 7 error classes autonomously**
+(`cmake_cuda_language`, `arch_flag_unsupported`, `missing_cuda_header`) before
+the free-tier endpoint began returning 500s and the run degraded, honestly, to
+STUCK (`llm_endpoint_unreachable`) — versus Kimi K2.6's 7 of 7. The comparison
+also produced a real finding: Gemma 4 interleaves `<thought>` markup through its
+replies, which broke diff extraction on the first attempt (1 fix); Bridge's
+messy-output hardening now strips thought spans (test-pinned with the recorded
+reply shape), which took Gemma from 1 fix to 3. The architectural point stands:
+diagnosis quality varies by brain, but the mechanical patch policy gate held
+identically for both models.
 
 ## Tests & CI
 

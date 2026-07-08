@@ -1,0 +1,48 @@
+# Gemma comparison run — live Gemma 3 27B brain (Google AI Studio, free tier),
+# mock executor replaying the captured hardware fixtures. No GPU needed.
+# The AMD hackathon pod's egress blocked generativelanguage.googleapis.com,
+# so this run happens off-pod; the on-hardware SUCCESS run (Kimi) is the
+# recorded headline, this is the model-comparison entry for the Gemma challenge.
+#   GOOGLE_API_KEY=<AI Studio key> python -m bridge run \
+#     --config config.gemma.laptop.yaml --record fixtures/cassettes/gemma.live.json
+
+executor:
+  kind: mock
+  mock:
+    scenario: fixtures/scenarios/success.yaml
+
+repo:
+  path: scratch/gemma-run
+  offload_arch: gfx942
+
+commands:
+  configure: cmake -S . -B build -DCMAKE_CXX_COMPILER=hipcc
+  hipify: hipify-perl -inplace -print-stats $(find src -name '*.cu')
+  build: cmake --build build -j
+  test: ctest --test-dir build --output-on-failure
+
+llm:
+  backend: openai
+  base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+  # Endpoint-verified 2026-07-09: this AI Studio account serves Gemma 4
+  # (gemma-3-27b-it is no longer listed). Newest Gemma = the comparison brain.
+  model: gemma-4-31b-it
+  api_key_env: GOOGLE_API_KEY
+  temperature: 0.0
+  # Gemma 4 is a THINKING model (opens with a <thought> block) — give it the
+  # same room as Kimi: a large output budget and minutes-long timeout.
+  max_tokens: 16384
+  request_timeout_s: 300
+  display_host: google-ai-studio (gemma-4-31b)
+  cost:
+    mode: priced
+    currency: USD
+    input_per_mtok: 0.0    # AI Studio free tier
+    output_per_mtok: 0.0
+
+caps:
+  max_iterations: 40
+  max_attempts_per_cluster: 3
+
+prompts_dir: prompts
+runs_dir: runs

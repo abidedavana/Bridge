@@ -98,3 +98,42 @@ def test_no_patch_sentinel_raises_nopatch():
 def test_prose_only_diff_raises():
     with pytest.raises(ExtractionError):
         extract_diff("I think you should change the header, but I won't write it.")
+
+
+# -- thinking-model output (Gemma 4, recorded live 2026-07-09) -----------------
+
+def test_diff_recovered_from_thought_wrapped_reply():
+    """Shape verbatim from fixtures/cassettes/gemma.live.json: Gemma 4 wraps
+    deliberation in <thought> spans; the payload follows the closing tag."""
+    from bridge.llm.extract import extract_diff
+    text = (
+        "<thought>*   Target: AMD ROCm/HIP (gfx942).\n"
+        "    *   Diagnosis: `enable_language(CUDA)` still active.\n"
+        "    Let's double check the hunk header.</thought>\n"
+        "--- a/CMakeLists.txt\n+++ b/CMakeLists.txt\n"
+        "@@ -1,2 +1,2 @@\n-project(x LANGUAGES CXX CUDA)\n+project(x LANGUAGES CXX)\n"
+    )
+    diff = extract_diff(text)
+    assert diff.startswith("--- a/CMakeLists.txt")
+    assert "<thought>" not in diff
+
+
+def test_json_recovered_from_thought_wrapped_reply():
+    from bridge.llm.extract import extract_diagnosis
+    text = (
+        "<thought>{'sketch': 'not the answer'} braces in thought must not win</thought>\n"
+        '```json\n{"error_class": "cmake_cuda_language", "root_cause": "x",\n'
+        ' "files_to_touch": ["CMakeLists.txt"], "fix_summary": "y"}\n```'
+    )
+    d = extract_diagnosis(text)
+    assert d["error_class"] == "cmake_cuda_language"
+
+
+def test_thought_only_reply_fails_with_actionable_reason():
+    """A reply that is ONLY an (unclosed) thought must fail extraction with a
+    reason the retry can act on — not be mistaken for a diff or JSON."""
+    import pytest
+    from bridge.llm.extract import ExtractionError, extract_diff
+    with pytest.raises(ExtractionError) as e:
+        extract_diff("<thought>--- hmm, I should consider the hunk header")
+    assert "thought" in e.value.reason

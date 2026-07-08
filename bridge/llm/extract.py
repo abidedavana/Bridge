@@ -22,7 +22,18 @@ _REQUIRED = {"error_class": str, "root_cause": str, "files_to_touch": list}
 
 _FENCE_BLOCK = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
 _DIFF_START = re.compile(r"^(diff --git |--- )", re.MULTILINE)
+# Thinking models (Gemma 4 via the OpenAI-compat layer) interleave
+# <thought>...</thought> spans in the content; strip them before extraction,
+# the same way fences and preamble are tolerated. An unclosed <thought>
+# (output-budget truncation) removes everything from the tag onward.
+_THOUGHT_SPAN = re.compile(r"<thought>.*?</thought>", re.DOTALL)
+_THOUGHT_OPEN = re.compile(r"<thought>.*\Z", re.DOTALL)
 NO_PATCH = "NO_PATCH"
+
+
+def strip_thoughts(text: str) -> str:
+    """Remove closed <thought> spans, then any unclosed trailing one."""
+    return _THOUGHT_OPEN.sub("", _THOUGHT_SPAN.sub("", text))
 
 
 class ExtractionError(ValueError):
@@ -74,6 +85,9 @@ def extract_json(text: str) -> dict:
     """Recover a JSON object from fenced/preambled/trailing-text model output."""
     if not text or not text.strip():
         raise ExtractionError("empty response")
+    text = strip_thoughts(text)
+    if not text.strip():
+        raise ExtractionError("response contained only <thought> text, no payload")
     candidate = _first_json_object(unfence(text)) or _first_json_object(text)
     if candidate is None:
         raise ExtractionError("no JSON object found in response")
@@ -110,6 +124,9 @@ def extract_diff(text: str) -> str:
     """
     if not text or not text.strip():
         raise ExtractionError("empty response")
+    text = strip_thoughts(text)
+    if not text.strip():
+        raise ExtractionError("response contained only <thought> text, no payload")
     if text.strip() == NO_PATCH or text.strip().splitlines()[0].strip() == NO_PATCH:
         raise NoPatchProposed()
     body = unfence(text)
