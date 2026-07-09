@@ -1,11 +1,27 @@
 [project]
 name = "bridge-migrate"
-version = "0.1.0"
-description = "Bridge: an autonomous CUDA to ROCm/HIP migration agent."
+version = "1.0.0"
+description = "Bridge: an autonomous CUDA to ROCm/HIP migration agent — ports CUDA repos until they build and pass tests on AMD GPUs, with a mechanical security gate over every AI-written diff."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-authors = [{ name = "Bridge contributors" }]
+authors = [{ name = "Abid Edavana Zakir", email = "abidedavana@gmail.com" }]
+keywords = ["cuda", "rocm", "hip", "amd", "gpu", "migration", "llm-agent", "agentic-security"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Security",
+]
+
+[project.urls]
+Homepage = "https://github.com/abidedavana/Bridge"
+Repository = "https://github.com/abidedavana/Bridge"
+"Threat model" = "https://github.com/abidedavana/Bridge/blob/main/THREAT_MODEL.md"
 
 # Runtime dependencies are deliberately minimal. Each is justified in DECISIONS.md.
 dependencies = [
