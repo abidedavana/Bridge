@@ -2,12 +2,16 @@
 
 **An autonomous CUDA → ROCm/HIP migration agent.**
 
+> **▶ See it run — no install: [abidedavana.github.io/Bridge/demo](https://abidedavana.github.io/Bridge/demo/)** —
+> the whole migration in one click: the real build failure, the agent's fixes, `SUCCESS`.
+> Prefer it live on your machine? `docker compose up` → http://localhost:8000.
+
 ![Bridge dashboard — the agent mid-migration, fixing a CDNA warp-size bug](docs/img/dashboard.png)
 
 <sub>The live dashboard mid-run: the agent fixing the AMD warp-size assumption (32-lane →
 `warpSize/2`, `0xffffffff` → the 64-bit mask), the pass rate climbing, real token cost — and
 **the exact diff it just wrote**. Every fix is a real git commit; replays offline with
-`docker compose up`, no GPU or API key. ([interactive walkthrough](demo/index.html) ·
+`docker compose up`, no GPU or API key. ([interactive walkthrough](https://abidedavana.github.io/Bridge/demo/) ·
 [the full story, end to end](docs/img/demo-output.png))</sub>
 
 Bridge takes a git repository containing CUDA code and ports it to ROCm/HIP so it
@@ -25,7 +29,7 @@ warp-size 32-vs-64 assumptions on CDNA, `__shfl_sync` semantics,
 finish a migration it says so precisely — every run ends in a complete, honest
 report ("HIPIFY got X%, Bridge autonomously fixed these classes, these remain").
 
-> **Status:** built, verified — **135 tests passing** — and **proven on real AMD
+> **Status:** built, verified — **143 tests passing** — and **proven on real AMD
 > hardware**: on 2026-07-08 Bridge autonomously ported a CUDA project to a
 > passing test on a Radeon GPU pod (`gfx1100`, ROCm 7.2). Everything below runs
 > on a laptop with **no GPU and no API key**, replaying genuine recorded runs.
@@ -169,7 +173,7 @@ identically for both models.
 
 ```bash
 python -m pip install pytest httpx
-python -m pytest -q          # 135 tests
+python -m pytest -q          # 143 tests
 ```
 
 Written to convince a skeptical judge, not just to pass CI: authentic ROCm/clang
