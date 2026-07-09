@@ -18,4 +18,4 @@ builder, LLM client, and the dashboard. Nothing in the system assumes full succe
 every run ends in a complete, presentable report.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"

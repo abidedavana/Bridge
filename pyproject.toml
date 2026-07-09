@@ -18,16 +18,18 @@ classifiers = [
     "Topic :: Security",
 ]
 
-[project.urls]
-Homepage = "https://github.com/abidedavana/Bridge"
-Repository = "https://github.com/abidedavana/Bridge"
-"Threat model" = "https://github.com/abidedavana/Bridge/blob/main/THREAT_MODEL.md"
-
 # Runtime dependencies are deliberately minimal. Each is justified in DECISIONS.md.
+# NB: this must stay inside [project]; a bare key placed after the [project.urls]
+# table below would bind to project.urls.dependencies and break the install.
 dependencies = [
     "pydantic>=2.5,<3",   # typed, validated config schema
     "PyYAML>=6,<7",       # human-friendly config and scenario files
 ]
+
+[project.urls]
+Homepage = "https://github.com/abidedavana/Bridge"
+Repository = "https://github.com/abidedavana/Bridge"
+"Threat model" = "https://github.com/abidedavana/Bridge/blob/main/THREAT_MODEL.md"
 
 [project.optional-dependencies]
 # The agent brain (LLM client). Kept optional so the mock/executor core stays
