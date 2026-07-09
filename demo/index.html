@@ -400,7 +400,7 @@ function showOut(){
   setTimeout(()=>a3.scrollIntoView({behavior:reduce?"auto":"smooth",block:"start"}),reduce?0:500);
 }
 
-// Deep-links for docs/screenshots: ?shot=fail = failed build, ?shot=done = finished migration.
+// Deep-links for docs/screenshots: ?shot=fail | fixing | done.
 (function(){
   var shot=new URLSearchParams(location.search).get('shot');
   if(!shot) return;
@@ -408,11 +408,9 @@ function showOut(){
   $('b1').disabled=true; $('term').innerHTML='';
   FAIL_LINES.forEach(function(p){var s=document.createElement('span');s.className=p[0];s.textContent=p[1]+NL;$('term').appendChild(s);});
   $('verdict').classList.add('show'); $('b2').disabled=false;
-  if(shot==='done'){
-    $('b2').disabled=true; $('act2').classList.add('show');
-    render(ITS.length-1); chipEls.forEach(function(c){c.className='chip done';});
-    $('act3').classList.add('show');
-  }
+  if(shot==='fixing'){ $('b2').disabled=true; $('act2').classList.add('show'); render(7); }
+  if(shot==='done'){ $('b2').disabled=true; $('act2').classList.add('show');
+    render(ITS.length-1); chipEls.forEach(function(c){c.className='chip done';}); $('act3').classList.add('show'); }
 })();
 </script>
 

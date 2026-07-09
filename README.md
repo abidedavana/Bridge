@@ -2,12 +2,13 @@
 
 **An autonomous CUDA → ROCm/HIP migration agent.**
 
-![Bridge dashboard — a CUDA→ROCm migration replayed to SUCCESS](docs/img/dashboard.png)
+![Bridge dashboard — the agent mid-migration, fixing a CDNA warp-size bug](docs/img/dashboard.png)
 
-<sub>The live dashboard as a real recorded migration climbs to `SUCCESS` — 100% of tests
-passing on AMD, HIPIFY's conversion %, and the token/cost counter. Replays offline with
+<sub>The live dashboard mid-run: the agent fixing the AMD warp-size assumption (32-lane →
+`warpSize/2`, `0xffffffff` → the 64-bit mask), the pass rate climbing, real token cost — and
+**the exact diff it just wrote**. Every fix is a real git commit; replays offline with
 `docker compose up`, no GPU or API key. ([interactive walkthrough](demo/index.html) ·
-[what a judge sees, end to end](docs/img/demo-output.png))</sub>
+[the full story, end to end](docs/img/demo-output.png))</sub>
 
 Bridge takes a git repository containing CUDA code and ports it to ROCm/HIP so it
 builds and passes its test suite on an AMD GPU — and it can run its own reasoning
