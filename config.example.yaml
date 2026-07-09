@@ -1,7 +1,7 @@
 # Bridge configuration -- copy to config.yaml and edit.
 # Two headline switches:
-#   executor.kind : mock (fixtures, no GPU)  |  ssh (the MI300X box)
-#   llm.base_url  : Fireworks (default)      |  self-hosted vLLM on the MI300X
+#   executor.kind : mock (fixtures, no GPU) | local (this ROCm box) | ssh (remote AMD box)
+#   llm.base_url  : Fireworks (default)      |  self-hosted vLLM on an AMD GPU
 
 executor:
   kind: mock

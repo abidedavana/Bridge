@@ -55,8 +55,11 @@ Open **http://localhost:8000**. A full CUDA→ROCm migration climbs to `SUCCESS`
 live and on a loop: the pass-rate chart rising per iteration, each agent-written
 diff shown beside the error it fixed, the error classes fixed autonomously,
 HIPIFY's conversion %, a token/cost counter, and an endpoint badge. Every fix is a
-**real git commit** in a scratch repo (`bridge(iter N, <error_class>): …`); only
-the GPU-bound compile/test result is replayed from captured fixtures.
+**real git commit** in a scratch repo (`bridge(iter N, <error_class>): …`). This
+demo is a **recording**, which is why it needs no GPU and no key: the brain's
+replies replay from a cassette of a genuine Fireworks (Kimi K2.6) run, and the
+compile/test results from captured GPU fixtures. To run it for real — your repo,
+your key, a live model — see [Run it on your own CUDA repo](#run-it-on-your-own-cuda-repo-live).
 
 ### No Docker? Run it natively
 
@@ -72,6 +75,40 @@ python -m bridge run --config config.replay.example.yaml
 python -m bridge dashboard --config config.replay.example.yaml     # http://127.0.0.1:8000
 python -m bridge run --config config.replay.example.yaml --delay 1.0
 ```
+
+## Run it on your own CUDA repo (live)
+
+The demos above are recordings so they work with no GPU or key. To port a **real**
+repo, copy [config.example.yaml](config.example.yaml) and set these fields:
+
+```yaml
+executor:
+  kind: local                  # run on THIS machine (a ROCm box); or `ssh` for a remote AMD box
+repo:
+  path: /path/to/your-cuda-repo
+  offload_arch: gfx942         # your GPU: gfx942 (MI300X/CDNA3), gfx1100 (Radeon/RDNA3), gfx90a …
+commands:                      # the four commands Bridge drives; it issues git/patch itself
+  configure: cmake -S . -B build -DCMAKE_CXX_COMPILER=hipcc
+  hipify: hipify-perl -inplace -print-stats $(find src -name '*.cu')
+  build: cmake --build build -j
+  test: ctest --test-dir build --output-on-failure
+llm:
+  backend: openai              # any OpenAI-compatible endpoint
+  model: accounts/fireworks/models/kimi-k2p6
+  api_key_env: BRIDGE_LLM_API_KEY
+```
+
+Then, on a machine with ROCm and your CUDA repo checked out:
+
+```bash
+export BRIDGE_LLM_API_KEY=fw_your_key            # Fireworks, or any OpenAI-compatible key
+python -m bridge validate --config config.yaml   # sanity-check the config
+python -m bridge run --config config.yaml        # ports the repo; one real commit per fix
+```
+
+Bridge edits your repo in place and commits one fix per iteration, ending in an
+honest `SUCCESS` / `PARTIAL` / `STUCK` report — review the branch it produced.
+(Prefer not to run on your host? `executor.kind: ssh` drives a remote AMD box.)
 
 ## The hardware run — a real autonomous migration recorded on AMD hardware (gfx1100)
 
@@ -163,8 +200,9 @@ clone repo → HIPIFY → build → parse errors → diagnose (LLM) → propose 
   → SUCCESS / PARTIAL / STUCK, always with a complete report
 ```
 
-Two seams make it testable and safe: the **`Executor`** interface (mock replays
-real logs with zero GPU; SSH runs on the MI300X — one config switch), and the
+Two seams make it testable and safe: the **`Executor`** interface (`mock` replays
+real logs with zero GPU; `local` runs on the AMD box itself — the path the gfx1100
+run used; `ssh` drives a remote AMD Instinct box — one config switch), and the
 **LLM backend** (`openai` for Fireworks/vLLM; `replay` for a deterministic
 recorded run). Plain Python, an explicit state machine, no agent frameworks.
 
