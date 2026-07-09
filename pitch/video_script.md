@@ -2,7 +2,7 @@
 
 **Target length:** ~2:45 (lablab demo videos run 2–5 min; this is tight on purpose).
 **Format:** screen recording of the live dashboard + voiceover. No slides needed in the video — the dashboard *is* the demo.
-**Golden rule (matches the repo's honesty posture):** show only what is real. The demo replays a **genuine** recorded Fireworks run; the MI300X hardware run is framed as *ready/next*, never as already done.
+**Golden rule (matches the repo's honesty posture):** show only what is real. The offline demo replays a **genuine** recorded Fireworks run; the hardware run genuinely happened on an **AMD Radeon (gfx1100)** pod — an **MI300X** specifically remains *ready/next*, not done. Never blur those two.
 
 **Recording setup (before you hit record):**
 - Terminal + browser side by side, or terminal first then full-screen the browser at `http://localhost:8000`.
@@ -39,9 +39,9 @@
 > "The brain is model-agnostic — one config line swaps it, so we actually ran the comparison: Google's Gemma 4 fixed three of the seven error classes on the same migration Kimi aced, honestly recorded, and the mechanical safety gate held identically for both brains. That's the point — the security doesn't depend on which model drives."
 
 ## Scene 6 — The hardware run + close (2:15–2:45)
-**SCREEN:** The pod screenshots — the SUCCESS `== report ==`, the `bridge-agent` git log, `100% tests passed` in ctest. Bullets: "Ran on AMD hardware: Radeon (gfx1100) · 3 iterations · ctest 100% · $0.07 / 135 tests · Docker demo · open source." Then the GitHub URL + name.
+**SCREEN:** The pod screenshots — the SUCCESS `== report ==`, the `bridge-agent` git log, `100% tests passed` in ctest. Bullets: "Ran on AMD hardware: Radeon (gfx1100) · 3 iterations · ctest 100% · ~$0.05 / 135 tests · Docker demo · open source." Then the GitHub URL + name.
 **VOICEOVER:**
-> "And this isn't hypothetical. On an AMD Radeon GPU pod, Bridge autonomously ported a real CUDA project: it diagnosed cmake's actual errors, landed two policy-gated fixes as real commits, and the ported test passed on the GPU — three iterations, about seven cents. That run ships in the repo as a replayable recording. Bridge: it doesn't just move code to AMD — it did it, on AMD, safely. Thanks for watching."
+> "And this isn't hypothetical. On an AMD Radeon GPU pod, Bridge autonomously ported a real CUDA project: it diagnosed cmake's actual errors, landed two policy-gated fixes as real commits, and the ported test passed on the GPU — three iterations, about five cents. That run ships in the repo as a replayable recording. Bridge: it doesn't just move code to AMD — it did it, on AMD, safely. Thanks for watching."
 **ON-SCREEN TEXT:** "github.com/abidedavana/Bridge · Abid Edavana Zakir · AMD Developer Hackathon ACT II"
 
 ---

@@ -34,7 +34,7 @@ git clone https://github.com/abidedavana/Bridge.git
 cd Bridge
 pip install -q pydantic PyYAML fastapi uvicorn pytest httpx
 python -m bridge --version
-python -m pytest -q -p no:warnings          # expect: 119 passed
+python -m pytest -q -p no:warnings          # expect: 135 passed
 python -m bridge run --config config.replay.example.yaml   # replays the real run → SUCCESS
 ```
 This alone is a talking point: **Bridge running on an AMD Instinct GPU.**

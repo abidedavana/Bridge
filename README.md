@@ -23,7 +23,7 @@ report ("HIPIFY got X%, Bridge autonomously fixed these classes, these remain").
 | Run | Brain | Outcome |
 | --- | --- | --- |
 | Recorded live migration (the demo) | Kimi K2.6 (Fireworks) | **SUCCESS** — 11 iterations, all **7/7 error classes** fixed autonomously, incl. the 64-bit CDNA warp-mask fix; ~$0.30 at list price |
-| **On AMD hardware** (gfx1100 pod, real hipcc builds) | Kimi K2.6 (Fireworks) | **SUCCESS** — 3 iterations, 2 policy-gated CMake fixes, `ctest` **100%** on the GPU; $0.07 |
+| **On AMD hardware** (gfx1100 pod, real hipcc builds) | Kimi K2.6 (Fireworks) | **SUCCESS** — 3 iterations, 2 policy-gated CMake fixes, `ctest` **100%** on the GPU; ~$0.05 (idiomatic find_package(hip) port) |
 | On-hardware honest degradation | Kimi K2.6 (Fireworks) | **PARTIAL** — agent targeted the wrong GPU arch (prompts then hardcoded MI300X; fixed, test-pinned), stopped honestly; a one-line human arch fix → `ctest` 100% |
 | Gemma comparison (same scenario as the demo) | Gemma 4 31B (AI Studio) | **STUCK** — **3/7 classes fixed** before the free-tier endpoint 500'd; first attempt managed 1/7 until `<thought>`-markup extraction was hardened |
 
@@ -67,7 +67,7 @@ On 2026-07-08, on an AMD hackathon GPU pod (Radeon PRO W7900-class, `gfx1100`,
 ROCm 7.2), Bridge autonomously ported this CUDA project for real: live Kimi K2.6
 diagnosed cmake's actual (ANSI-colored) errors, two policy-gated fixes landed as
 real commits, and the ported binary passed `ctest` on the GPU — 3 iterations,
-$0.07. That run's unmodified recording is
+~$0.05. That run's unmodified recording is
 [fixtures/cassettes/hardware.json](fixtures/cassettes/hardware.json); the build
 and test logs in its replay scenario are the genuine captured pod outputs.
 Replay it, no GPU or key needed:

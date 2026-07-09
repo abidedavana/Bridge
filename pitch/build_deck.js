@@ -185,7 +185,7 @@ title(s, "Everything you see is real.");
 const proof = [
   ["Real recorded run", "A genuine Fireworks Kimi K2.6 run reached SUCCESS — all 7 error classes fixed autonomously, including the correct 64-bit CDNA warp-mask."],
   ["Real git commits", "One commit per fix (bridge(iter N, error_class): …) in a scratch repo — the migration is an auditable history, not a printout."],
-  ["119 tests · CI green", "Property test: no model/executor output can crash the loop. Red-team test: the policy gate rejects a live injection payload."],
+  ["135 tests · CI green", "Property test: no model/executor output can crash the loop. Red-team test: the policy gate rejects a live injection payload."],
   ["Runs offline", "No GPU, no API key. One command (docker compose up) reproduces the whole demo on a laptop."],
 ];
 const cw = 5.85, ch = 1.9, cx0 = ML, cx1 = ML + cw + 0.35, cy0 = 2.55, cy1 = 2.55 + ch + 0.3;
@@ -239,12 +239,12 @@ s.addText([
   { text: "llm.model: ", options: { color: MUTED } },
   { text: "accounts/fireworks/models/kimi-k2p6", options: { color: "8A9099" } },
   { text: "   →   ", options: { color: MUTED } },
-  { text: "accounts/fireworks/models/gemma-3-27b-it", options: { color: GREEN, bold: true } },
+  { text: "accounts/fireworks/models/gemma-4-31b-it", options: { color: GREEN, bold: true } },
 ], { x: ML + 0.3, y: 2.6, w: 11.3, h: 1.5, fontFace: MONO, fontSize: 16, valign: "middle", margin: 0 });
 
 const gcards = [
-  ["Enters the Gemma challenge", "The same agent, driven by Google's Gemma — a one-file config, no code change. Recorded as an honest model-vs-model comparison run."],
-  ["Gemma, thinking on AMD", "The endpoint is just OpenAI-compatible, so Gemma can be self-hosted on the MI300X via vLLM — the brain running on AMD while it ports code to AMD."],
+  ["We ran the comparison", "Gemma 4 31B fixed 3 of 7 error classes on the same migration Kimi aced — honest numbers, recorded, and the safety gate held identically for both brains."],
+  ["It hardened the agent", "Gemma 4's <thought> markup broke diff extraction; Bridge's output parser now strips it, test-pinned. The gate is model-independent."],
 ];
 gcards.forEach((g, i) => {
   const x = ML + i * (5.9 + 0.1); const w = 5.9;
@@ -262,11 +262,11 @@ s = pres.addSlide(); base(s);
 eyebrow(s, "Built for AMD");
 title(s, "Aligned with the AMD stack.");
 const align = [
-  ["ROCm / HIP target", "The whole point: CUDA → HIP so it builds on Instinct.", true],
+  ["ROCm / HIP target", "The whole point: CUDA → HIP so it builds on AMD GPUs.", true],
   ["Fireworks live brain", "The verified SUCCESS run used Fireworks (Kimi K2.6).", true],
   ["Docker demo", "One command reproduces the full migration.", true],
-  ["Gemma one-line swap", "Model-agnostic; enters the Gemma challenge.", true],
-  ["MI300X on AMD Dev Cloud", "Live on-hardware migration — tooling ready, runs on approval.", false],
+  ["Gemma comparison run", "Model-agnostic; the recorded Gemma 4 entry, 3 of 7.", true],
+  ["Ran on AMD hardware", "Autonomous port on a Radeon GPU (gfx1100), ctest 100%.", true],
 ];
 let ay = 2.55; const rh = 0.82;
 align.forEach((a) => {
@@ -293,10 +293,10 @@ s.addShape(pres.shapes.OVAL, { x: ML + 0.32, y: 2.85, w: 0.18, h: 0.18, fill: { 
 s.addText("Verified & shipping", { x: ML + 0.62, y: 2.72, w: 5.0, h: 0.45, fontFace: HEAD, fontSize: 17, bold: true, color: GREEN, margin: 0 });
 s.addText([
   "Full agent loop + policy gate",
-  "Live dashboard (real diffs & cost)",
-  "119 tests green · GitHub Actions CI",
+  "135 tests green · GitHub Actions CI",
+  "Live Fireworks run → SUCCESS (7/7)",
+  "Autonomous port on AMD hardware (gfx1100)",
   "docker compose up demo, offline",
-  "Live Fireworks run → SUCCESS",
   "Public repo, MIT",
 ].map((t, i, a) => ({ text: t, options: { bullet: { code: "2022", indent: 16 }, breakLine: true, color: TEXT } })),
   { x: ML + 0.35, y: 3.35, w: 5.2, h: 3.0, fontFace: BODY, fontSize: 14, valign: "top", margin: 0, paraSpaceAfter: 9 });
@@ -305,13 +305,13 @@ card(s, ML + 6.05, 2.55, 5.85, 3.95, "1A1710");
 s.addShape(pres.shapes.OVAL, { x: ML + 6.37, y: 2.85, w: 0.18, h: 0.18, fill: { color: AMBER } });
 s.addText("Next", { x: ML + 6.67, y: 2.72, w: 5.0, h: 0.45, fontFace: HEAD, fontSize: 17, bold: true, color: AMBER, margin: 0 });
 s.addText([
-  "Live migration on a real MI300X",
+  "The same run on a real MI300X",
   "Self-hosted Gemma on AMD (vLLM)",
-  "Repo-shortlist on hardware, pick demo",
-  "Recorded Gemma comparison run",
+  "Sandbox + hash-chained audit log",
+  "A corpus of real CUDA repos",
 ].map((t) => ({ text: t, options: { bullet: { code: "2022", indent: 16 }, breakLine: true, color: TEXT } })),
   { x: ML + 6.4, y: 3.35, w: 5.2, h: 2.4, fontFace: BODY, fontSize: 14, valign: "top", margin: 0, paraSpaceAfter: 9 });
-s.addText("Every hardware step has tooling written and waiting — it runs the moment the MI300X is provisioned.",
+s.addText("Ported on a Radeon today; the MI300X is a one-line arch swap away.",
   { x: ML + 6.4, y: 5.75, w: 5.2, h: 0.6, fontFace: BODY, fontSize: 11.5, italic: true, color: MUTED, valign: "top", margin: 0, lineSpacingMultiple: 1.1 });
 footer(s, 9);
 

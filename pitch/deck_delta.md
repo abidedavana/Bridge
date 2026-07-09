@@ -14,7 +14,7 @@ new text is what it should say for submission. Everything else stays.
   Cloud — the tooling is written and ready, and runs on approval."
 - NEW: "Proven on hardware: on an AMD Radeon GPU pod (gfx1100, ROCm 7.2),
   Bridge autonomously ported a real CUDA project — two policy-gated fixes,
-  ctest 100% on the GPU, $0.07. MI300X remains a one-line arch swap away."
+  ctest 100% on the GPU, ~$0.05. MI300X remains a one-line arch swap away."
 
 ## Slide 7 — "Proof by the Numbers"
 - OLD: big stat "119" / caption "tests green, with CI"
@@ -24,7 +24,7 @@ new text is what it should say for submission. Everything else stays.
 - OLD: "7 of 7 CUDA-porting error classes fixed with no human help, across 11
   iterations."
 - NEW: "7 of 7 error classes fixed with no human help — and a second SUCCESS
-  on real AMD hardware: 3 iterations, ctest 100%, $0.07."
+  on real AMD hardware: 3 iterations, ctest 100%, ~$0.05."
 
 ## Slide 9 — "Swap the Brain in One Line"
 - OLD (card 2, "Gemma challenge"): "Swap Kimi K2.6 for Google Gemma 3 27B to
