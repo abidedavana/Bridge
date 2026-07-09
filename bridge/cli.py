@@ -1,17 +1,23 @@
 """Bridge command-line entry point.
 
-Milestone 1 ships two commands:
+The two smooth-journey commands most users need:
 
-    bridge validate   - load and validate a config, build the executor, and print
-                        a resolved summary (including the mock scenario, if any).
-    bridge mock-demo  - drive the scenario through the mock executor: run HIPIFY,
-                        then loop build/test issuing a real git commit per
-                        "fix". This exercises the executor + scenario plumbing and
-                        shows the replay advancing. It is a *driver*, not the agent
-                        -- the real orchestrator state machine lands in Milestone 3.
+    bridge demo       - one command, one terminal: serve the dashboard, open the
+                        browser, and replay a real recorded migration (no GPU, no
+                        API key).
+    bridge init       - guided setup for a live run: detect the GPU arch and the
+                        repo's build system, ask only for what can't be detected,
+                        write a validated config.yaml.
 
-Both are intentionally small; they exist so every claim in the README is runnable
-today, on a laptop, with no GPU.
+Plus the underlying pieces, individually scriptable:
+
+    bridge validate   - load and validate a config; print a resolved summary.
+    bridge run        - the real agent loop (diagnose -> diff -> policy gate ->
+                        commit); --dashboard watches it live in the browser.
+    bridge dashboard  - serve the dashboard alone (e.g. on another host/port).
+    bridge mock-demo  - drive a scenario through the mock executor (plumbing
+                        check, not the agent).
+    bridge shortlist  - triage candidate CUDA repos for the best demo pick.
 """
 
 from __future__ import annotations
@@ -27,9 +33,71 @@ from .executor.mock import MockExecutor
 
 def _load(config_path: str) -> BridgeConfig:
     if not os.path.exists(config_path):
-        print(f"bridge: config not found: {config_path}", file=sys.stderr)
+        print(
+            f"bridge: config not found: {config_path}\n"
+            "        `bridge init` writes one for your repo; `bridge demo` needs none.",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
     return BridgeConfig.load(config_path)
+
+
+def _start_dashboard(state_path: str, host: str, port: int):
+    """Serve the dashboard on a daemon thread so `demo` and `run --dashboard`
+    need one terminal, not two. Returns (server, thread), or None when the
+    extras are missing or the port never came up — callers continue headless."""
+    import threading
+    import time as _time
+
+    try:
+        import uvicorn
+
+        from .dashboard.app import create_app
+    except ImportError:
+        print(
+            "bridge: dashboard extras not installed -- continuing headless.\n"
+            "        pip install 'bridge-migrate[dashboard]'  (or: pip install fastapi uvicorn)",
+            file=sys.stderr,
+        )
+        return None
+    server = uvicorn.Server(
+        uvicorn.Config(create_app(state_path), host=host, port=port, log_level="warning")
+    )
+    thread = threading.Thread(target=server.run, name="bridge-dashboard", daemon=True)
+    thread.start()
+    for _ in range(100):  # up to ~5s for startup
+        if server.started or not thread.is_alive():
+            break
+        _time.sleep(0.05)
+    if not server.started:
+        print(
+            f"bridge: dashboard failed to start on {host}:{port} (port in use?) -- "
+            "continuing headless.",
+            file=sys.stderr,
+        )
+        return None
+    return server, thread
+
+
+def _open_dashboard(host: str, port: int) -> None:
+    import webbrowser
+
+    url = f"http://{host}:{port}"
+    print(f"== dashboard live: {url} ==")
+    webbrowser.open(url)
+
+
+def _wait_for_interrupt(server, thread) -> None:
+    """Keep the dashboard alive after the run so the final report stays
+    explorable; Ctrl+C exits cleanly."""
+    print("== dashboard still live -- press Ctrl+C to exit ==")
+    try:
+        while thread.is_alive():
+            thread.join(0.5)
+    except KeyboardInterrupt:
+        pass
+    server.should_exit = True
+    thread.join(3)
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -319,6 +387,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 2
 
     state_path = os.path.join(cfg.runs_dir, "current.json")
+    dash = None
+    if getattr(args, "dashboard", False):
+        dash = _start_dashboard(state_path, "127.0.0.1", getattr(args, "port", 8000))
+        if dash:
+            _open_dashboard("127.0.0.1", getattr(args, "port", 8000))
     state = RunState(
         run_id=_time.strftime("%Y%m%d-%H%M%S"),
         scenario=scenario.name if scenario is not None else "-",
@@ -369,7 +442,38 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"  dashboard state: {state_path}")
     if args.record:
         print(f"  recorded cassette: {args.record}")
+    if dash:
+        _wait_for_interrupt(*dash)
     return 0
+
+
+def cmd_demo(args: argparse.Namespace) -> int:
+    """The 30-second journey in one command: dashboard + browser + a replayed
+    real migration. No GPU, no API key, one terminal."""
+    if not os.path.exists(args.config):
+        print(
+            f"bridge: {args.config} not found — run `bridge demo` from the Bridge "
+            "clone (it replays the recorded run that ships in fixtures/).",
+            file=sys.stderr,
+        )
+        return 2
+    cfg = _load(args.config)
+    state_path = os.path.join(cfg.runs_dir, "current.json")
+
+    dash = None
+    if not args.headless:
+        dash = _start_dashboard(state_path, args.host, args.port)
+        if dash:
+            _open_dashboard(args.host, args.port)
+
+    rc = cmd_run(
+        argparse.Namespace(
+            config=args.config, record=None, keep=False, delay=args.delay, dashboard=False
+        )
+    )
+    if dash:
+        _wait_for_interrupt(*dash)
+    return rc
 
 
 def cmd_shortlist(args: argparse.Namespace) -> int:
@@ -398,6 +502,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--version", action="store_true", help="print version and exit")
     sub = p.add_subparsers(dest="command")
 
+    pdm = sub.add_parser(
+        "demo",
+        help="one-command offline demo: dashboard + browser + a replayed real migration",
+    )
+    pdm.add_argument("--config", default="config.replay.example.yaml")
+    pdm.add_argument("--host", default="127.0.0.1")
+    pdm.add_argument("--port", type=int, default=8000)
+    pdm.add_argument("--delay", type=float, default=1.0, help="seconds per iteration so the climb is visible (0 = instant)")
+    pdm.add_argument("--headless", action="store_true", help="no dashboard/browser; print the report only")
+    pdm.set_defaults(func=cmd_demo)
+
+    from .setup_wizard import add_init_parser
+
+    add_init_parser(sub)
+
     pv = sub.add_parser("validate", help="validate a config and print a summary")
     pv.add_argument("--config", default="config.yaml")
     pv.set_defaults(func=cmd_validate)
@@ -423,6 +542,8 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--record", default=None, help="record the LLM exchange to this cassette path")
     pr.add_argument("--keep", action="store_true", help="(mock) keep the existing scratch repo instead of resetting it")
     pr.add_argument("--delay", type=float, default=0.0, help="pause N seconds per iteration so the dashboard shows a live climb")
+    pr.add_argument("--dashboard", action="store_true", help="serve + open the live dashboard during the run (one terminal)")
+    pr.add_argument("--port", type=int, default=8000, help="dashboard port (with --dashboard)")
     pr.set_defaults(func=cmd_run)
 
     ps = sub.add_parser("shortlist", help="triage candidate CUDA repos and rank the best demo pick")

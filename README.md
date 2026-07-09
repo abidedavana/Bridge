@@ -63,52 +63,40 @@ your key, a live model — see [Run it on your own CUDA repo](#run-it-on-your-ow
 
 ### No Docker? Run it natively
 
-Requires Python 3.10+ and git.
+Requires Python 3.10+ and git. One command, one terminal — it serves the
+dashboard, opens your browser, and replays the recorded migration:
 
 ```bash
-python -m pip install pydantic PyYAML fastapi uvicorn
-
-# headless — prints the outcome report:
-python -m bridge run --config config.replay.example.yaml
-
-# or watch it live in a browser (two terminals):
-python -m bridge dashboard --config config.replay.example.yaml     # http://127.0.0.1:8000
-python -m bridge run --config config.replay.example.yaml --delay 1.0
+python -m pip install -e ".[dashboard]"
+bridge demo
 ```
+
+(Headless variant, report only: `bridge demo --headless`.)
 
 ## Run it on your own CUDA repo (live)
 
-The demos above are recordings so they work with no GPU or key. To port a **real**
-repo, copy [config.example.yaml](config.example.yaml) and set these fields:
-
-```yaml
-executor:
-  kind: local                  # run on THIS machine (a ROCm box); or `ssh` for a remote AMD box
-repo:
-  path: /path/to/your-cuda-repo
-  offload_arch: gfx942         # your GPU: gfx942 (MI300X/CDNA3), gfx1100 (Radeon/RDNA3), gfx90a …
-commands:                      # the four commands Bridge drives; it issues git/patch itself
-  configure: cmake -S . -B build -DCMAKE_CXX_COMPILER=hipcc
-  hipify: hipify-perl -inplace -print-stats $(find src -name '*.cu')
-  build: cmake --build build -j
-  test: ctest --test-dir build --output-on-failure
-llm:
-  backend: openai              # any OpenAI-compatible endpoint
-  model: accounts/fireworks/models/kimi-k2p6
-  api_key_env: BRIDGE_LLM_API_KEY
-```
-
-Then, on a machine with ROCm and your CUDA repo checked out:
+The demos above are recordings so they work with no GPU or key. To port a
+**real** repo, on a machine with ROCm and your CUDA repo checked out:
 
 ```bash
-export BRIDGE_LLM_API_KEY=fw_your_key            # Fireworks, or any OpenAI-compatible key
-python -m bridge validate --config config.yaml   # sanity-check the config
-python -m bridge run --config config.yaml        # ports the repo; one real commit per fix
+python -m pip install -e ".[llm,dashboard]"
+bridge init                            # guided setup: detects your GPU arch and
+                                       # build system, writes a validated config.yaml
+export BRIDGE_LLM_API_KEY=fw_your_key  # Fireworks, or any OpenAI-compatible key
+bridge run --dashboard                 # ports the repo; watch live at http://127.0.0.1:8000
 ```
+
+`bridge init` detects the GPU (`rocm_agent_enumerator`/`rocminfo`), whether the
+repo builds with CMake or Make, and where its `.cu` files live — you confirm or
+edit each answer, and the result is round-tripped through the config schema
+before it is written. Every field it writes is documented in
+[config.example.yaml](config.example.yaml) if you'd rather edit by hand;
+`bridge validate` re-checks any config.
 
 Bridge edits your repo in place and commits one fix per iteration, ending in an
 honest `SUCCESS` / `PARTIAL` / `STUCK` report — review the branch it produced.
-(Prefer not to run on your host? `executor.kind: ssh` drives a remote AMD box.)
+(Prefer not to run on your host? `bridge init` can also configure `ssh` mode,
+which drives a remote AMD box.)
 
 ## The hardware run — a real autonomous migration recorded on AMD hardware (gfx1100)
 
@@ -122,7 +110,8 @@ and test logs in its replay scenario are the genuine captured pod outputs.
 Replay it, no GPU or key needed:
 
 ```bash
-python -m bridge run --config config.replay.hardware.yaml
+bridge demo --config config.replay.hardware.yaml    # in the browser
+python -m bridge run --config config.replay.hardware.yaml    # headless report
 ```
 
 ## Graceful degradation is a feature
@@ -228,7 +217,8 @@ bridge/
   dashboard/         FastAPI + one static page over the run state
   run_state.py       the persisted run log / dashboard feed
   shortlist.py       Day-1 demo-repo triage
-  cli.py             validate | mock-demo | run | dashboard | shortlist
+  setup_wizard.py    `bridge init`: detect GPU + build system, write a valid config
+  cli.py             demo | init | validate | run | dashboard | mock-demo | shortlist
 prompts/             versioned diagnose + propose-edit prompts (+ CUDA→ROCm cheat-sheet)
 fixtures/            real HIPIFY/ROCm/ctest logs, scenarios, seed + poisoned repos, cassette
 scripts/             serve_vllm_rocm.sh
