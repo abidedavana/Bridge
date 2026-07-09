@@ -2,9 +2,20 @@
 
 **An autonomous CUDA → ROCm/HIP migration agent.**
 
+![Bridge dashboard — a CUDA→ROCm migration replayed to SUCCESS](docs/img/dashboard.png)
+
+<sub>The live dashboard as a real recorded migration climbs to `SUCCESS` — 100% of tests
+passing on AMD, HIPIFY's conversion %, and the token/cost counter. Replays offline with
+`docker compose up`, no GPU or API key. ([interactive walkthrough](demo/index.html) ·
+[what a judge sees, end to end](docs/img/demo-output.png))</sub>
+
 Bridge takes a git repository containing CUDA code and ports it to ROCm/HIP so it
-builds and passes its test suite on an AMD Instinct MI300X — and it can run its
-own reasoning *on* AMD, with its LLM brain served by vLLM on the same MI300X.
+builds and passes its test suite on an AMD GPU — and it can run its own reasoning
+*on* AMD, with its LLM brain served by vLLM.
+
+### The problem it removes — CUDA code that won't build on AMD, fixed autonomously
+
+![Before: a CUDA project fails to build on AMD; Bridge then fixes it](docs/img/demo-problem.png)
 
 HIPIFY does the mechanical 90%. Bridge earns its keep on the last mile: build
 systems (CMake/Make), APIs HIPIFY misses, `cuBLAS`→`hipBLAS`/`rocBLAS` quirks,
