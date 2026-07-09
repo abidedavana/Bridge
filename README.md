@@ -142,10 +142,8 @@ One config switch runs the identical loop on real hardware: `executor.kind:
 local` runs Bridge **on** the GPU box itself (the path used for the recorded
 gfx1100 run), and `executor.kind: ssh` drives a remote Instinct box; another
 line (`llm.base_url`) points the brain at Fireworks or a self-hosted vLLM
-server. The MI300X runbook, the vLLM serving script, and the demo-repo picker
-are ready:
+server. The vLLM serving script and the demo-repo picker are ready:
 
-- [provision_checklist.md](provision_checklist.md) — step-by-step provisioning.
 - [scripts/serve_vllm_rocm.sh](scripts/serve_vllm_rocm.sh) — serve the brain on AMD.
 - `python -m bridge shortlist --config config.example.yaml --repos shortlist.example.yaml`
   — rank candidate CUDA repos "closest to green, most interesting failures"
@@ -234,7 +232,7 @@ bridge/
 prompts/             versioned diagnose + propose-edit prompts (+ CUDA→ROCm cheat-sheet)
 fixtures/            real HIPIFY/ROCm/ctest logs, scenarios, seed + poisoned repos, cassette
 scripts/             serve_vllm_rocm.sh
-DECISIONS.md · THREAT_MODEL.md · provision_checklist.md
+DECISIONS.md · THREAT_MODEL.md
 ```
 
 ## Team

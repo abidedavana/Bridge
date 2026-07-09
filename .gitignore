@@ -22,6 +22,11 @@ scratch/
 Thumbs.db
 
 # Editor / tooling local state (machine-specific; not shared)
-.claude/settings.local.json
+.claude/
 .vscode/
 .idea/
+
+# Submission scaffolding — kept locally, not part of the published project
+pitch/
+hardware_runbook.md
+provision_checklist.md
