@@ -62,17 +62,24 @@ class Orchestrator:
         self.delay = delay  # optional pause per iteration so the dashboard shows a live climb
         self.stuck_clusters: list[tuple] = []
         self.transport_error: str | None = None
+        self.internal_error: str | None = None
         self._reached_green = False
+        self._max_test_total = 0
 
     def run(self) -> RunOutcome:
         """Run to a terminal state. Never raises, never leaves the run log
-        unfinished: even a dead LLM endpoint (after the backend's own retries)
-        degrades to an honest STUCK/PARTIAL with the reason recorded."""
+        unfinished: a dead LLM endpoint (after the backend's own retries) or any
+        unexpected internal failure degrades to an honest STUCK/PARTIAL with the
+        reason recorded."""
         try:
             outcome = self._loop()
         except LLMTransportError as exc:
             self.transport_error = str(exc)
             self.stuck_clusters.append(("llm_endpoint_unreachable", None))
+            outcome = RunOutcome.PARTIAL if self._reached_green else RunOutcome.STUCK
+        except Exception as exc:  # noqa: BLE001 — the run log must always finish
+            self.internal_error = f"{type(exc).__name__}: {exc}"
+            self.stuck_clusters.append(("internal_error", None))
             outcome = RunOutcome.PARTIAL if self._reached_green else RunOutcome.STUCK
         self.recorder.finish(outcome.value)
         return outcome
@@ -82,14 +89,36 @@ class Orchestrator:
         attempts: dict[tuple, int] = {}
         outcome = RunOutcome.EXHAUSTED
 
+        # CMake projects need their one-time configure step; running it as part
+        # of every build keeps configure-stage errors (cmake_cuda_language etc.)
+        # visible and fixable by the loop, exactly like the recorded live runs.
+        build_cmd = self.cfg.commands.build
+        if self.cfg.commands.configure:
+            build_cmd = f"{self.cfg.commands.configure} && {build_cmd}"
+
         for iteration in range(1, self.cfg.caps.max_iterations + 1):
-            build = self.executor.run(self.cfg.commands.build, phase=Phase.BUILD)
+            build = self.executor.run(build_cmd, phase=Phase.BUILD)
             if build.ok:
                 self._reached_green = True
                 test = self.executor.run(self.cfg.commands.test, phase=Phase.TEST)
                 pr = parse(test.combined_output)
+                if pr.total is not None and 0 < pr.total < self._max_test_total:
+                    # The suite SHRANK. A "pass" that runs fewer tests than we
+                    # have already seen is treated as de-registration (an edit
+                    # to a build file can remove add_test without touching any
+                    # test file) — never as progress, never as SUCCESS.
+                    self.stuck_clusters.append(("test_count_dropped", None))
+                    self._record(iteration, "test", False, pr, None, 0, 0, 0.0,
+                                 note=(f"test total dropped {self._max_test_total} -> "
+                                       f"{pr.total}: refusing (possible de-registration)"),
+                                 duration=test.duration_s)
+                    outcome = RunOutcome.PARTIAL
+                    break
+                if pr.total:
+                    self._max_test_total = max(self._max_test_total, pr.total)
                 if test.ok:
-                    self._record(iteration, "test", True, pr, None, 0, 0, 0.0)
+                    self._record(iteration, "test", True, pr, None, 0, 0, 0.0,
+                                 duration=test.duration_s)
                     outcome = RunOutcome.SUCCESS
                     break
                 phase, raw = "test", test
@@ -112,12 +141,14 @@ class Orchestrator:
                 self.stuck_clusters.append(cluster)
                 outcome = RunOutcome.PARTIAL if self._reached_green else RunOutcome.STUCK
                 self._record(iteration, phase, False, pr, None, 0, 0, 0.0,
-                             note=f"STUCK: cluster {cluster[0]} hit attempt cap")
+                             note=f"STUCK: cluster {cluster[0]} hit attempt cap",
+                             duration=raw.duration_s)
                 break
             attempts[cluster] = attempts.get(cluster, 0) + 1
 
-            diff_applied, pt, ct, cost = self._attempt_fix(iteration, pr, raw, phase, primary)
-            self._record(iteration, phase, False, pr, diff_applied, pt, ct, cost)
+            diff_applied, pt, ct, cost, note = self._attempt_fix(iteration, pr, raw, phase, primary)
+            self._record(iteration, phase, False, pr, diff_applied, pt, ct, cost,
+                         note=note, duration=raw.duration_s)
             if self.delay:
                 time.sleep(self.delay)
 
@@ -126,11 +157,16 @@ class Orchestrator:
     # -- one fix attempt: diagnose -> propose -> gate+apply -> commit ---------
 
     def _attempt_fix(self, iteration, pr, raw, phase, primary):
+        """One fix attempt. Returns (applied_diff, prompt_tokens, completion_tokens,
+        cost, note). Tokens already spent are reported even when the attempt dies
+        partway — the cost counter never undercounts."""
+        pt = ct = 0
+        applied_diff = None
+        note = None
         try:
             bundle = build_context(pr, raw.combined_output, self.executor, self.cfg)
             diagnosis, dp, dc, dstatus = diagnose(self.backend, self.prompts, bundle, phase)
-            pp = pc = 0
-            applied_diff = None
+            pt, ct = pt + dp, ct + dc
             if dstatus == "ok":
                 # Build-system/linker/test errors often carry no file:line, which
                 # leaves the source window empty. Fall back to the file the
@@ -141,6 +177,7 @@ class Orchestrator:
                         if bundle.source_window:
                             break
                 diff, pp, pc, pstatus = propose_edit(self.backend, self.prompts, diagnosis, bundle)
+                pt, ct = pt + pp, ct + pc
                 if pstatus == "ok" and diff:
                     patch = apply_patch(self.executor, diff, self.cfg)
                     if not patch.applied and patch.rejected_by == "apply":
@@ -152,22 +189,22 @@ class Orchestrator:
                             self.backend, self.prompts, diagnosis, bundle,
                             feedback=(diff, patch.reason),
                         )
-                        pp, pc = pp + pp2, pc + pc2
+                        pt, ct = pt + pp2, ct + pc2
                         if pstatus2 == "ok" and diff2:
                             diff = diff2
                             patch = apply_patch(self.executor, diff, self.cfg)
                     if patch.applied:
                         applied_diff = diff
-                        self._commit(iteration, primary, diagnosis)
-            pt, ct = dp + pp, dc + pc
-            return applied_diff, pt, ct, self.cfg.llm.cost.token_cost(pt, ct)
+                        if not self._commit(iteration, primary, diagnosis,
+                                            patch.touched_files):
+                            note = "fix applied but git commit FAILED (audit trail gap)"
         except LLMTransportError:
             raise  # a dead brain aborts the run cleanly (caught by the caller)
-        except Exception:
-            # any other failure is a spent attempt, never a crash
-            return None, 0, 0, 0.0
+        except Exception as exc:  # noqa: BLE001 — a spent attempt, never a crash
+            note = f"attempt aborted: {type(exc).__name__}: {exc}"[:200]
+        return applied_diff, pt, ct, self.cfg.llm.cost.token_cost(pt, ct), note
 
-    def _commit(self, iteration, primary, diagnosis) -> None:
+    def _commit(self, iteration, primary, diagnosis, touched_files) -> bool:
         klass = primary.error_class if primary else "unknown"
         summary = str(diagnosis.get("fix_summary", "apply fix")).replace("\n", " ")[:120]
         msg = f"bridge(iter {iteration}, {klass}): {summary}\n"
@@ -176,12 +213,19 @@ class Orchestrator:
         # identity (the hackathon GPU pod had none, and every audit-trail commit
         # silently failed — hardware-day find).
         self.executor.write_file(".git/bridge_commit_msg.txt", msg)
-        self.executor.run("git add -A", phase=Phase.OTHER)
-        self.executor.run(
+        # Stage ONLY the files the gated diff touched: `git add -A` would sweep
+        # build artifacts (or anything else untracked) into the audit commits on
+        # repos without a .gitignore. Paths are gate-vetted (no leading '-', no
+        # absolute/traversal), and `--` ends option parsing.
+        paths = " ".join(f'"{p}"' for p in dict.fromkeys(touched_files) if '"' not in p)
+        add = self.executor.run(f"git add -- {paths}" if paths else "git add -A",
+                                phase=Phase.OTHER)
+        res = self.executor.run(
             "git -c user.name=bridge-agent -c user.email=bridge@agent.local "
             "commit -q -F .git/bridge_commit_msg.txt",
             phase=Phase.OTHER,
         )
+        return add.ok and res.ok
 
     def _hipify(self) -> None:
         hip = self.executor.run(self.cfg.commands.hipify, phase=Phase.HIPIFY)
@@ -189,7 +233,8 @@ class Orchestrator:
         if stats:
             self.recorder.set_hipify(stats.conversion_pct, stats.warnings)
 
-    def _record(self, iteration, phase, ok, pr, diff, pt, ct, cost, note: Optional[str] = None):
+    def _record(self, iteration, phase, ok, pr, diff, pt, ct, cost,
+                note: Optional[str] = None, duration: float = 0.0):
         p = pr.primary
         self.recorder.add(IterationRecord(
             iteration=iteration,
@@ -205,4 +250,5 @@ class Orchestrator:
             prompt_tokens=pt,
             completion_tokens=ct,
             cost=cost,
+            duration_s=duration,
         ))

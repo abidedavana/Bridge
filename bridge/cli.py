@@ -312,13 +312,25 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
 def _reset_scratch(path: str) -> None:
     """Delete a mock scratch working copy so each run starts from a clean slate —
     the offline demo must be repeatable (a judge will run it more than once).
-    Only ever called for the disposable `scratch/` path in mock mode, never a real
-    repo. Handles Windows read-only .git objects."""
+    Refuses to delete anything Bridge did not itself create (the provenance
+    markers below), so a mock config accidentally pointed at a real directory
+    can never wipe it. Handles Windows read-only .git objects."""
     import shutil
     import stat
 
     if not os.path.isdir(path):
         return
+    if not (
+        os.path.exists(os.path.join(path, "BRIDGE_TARGET.md"))
+        or os.path.exists(os.path.join(path, ".bridge_seeded"))
+    ):
+        print(
+            f"bridge: refusing to reset {path} -- it is not a Bridge scratch dir\n"
+            "        (no BRIDGE_TARGET.md/.bridge_seeded marker). Point repo.path at a\n"
+            "        disposable directory, or pass --keep to run in place.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
 
     def _onerror(func, p, _exc):
         try:
@@ -360,10 +372,22 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     cfg = _load(args.config)
     # Mock runs start from a clean scratch repo so the offline demo is repeatable.
-    # Real (ssh) repos are never wiped.
-    if cfg.executor.kind == "mock" and not args.keep:
-        _reset_scratch(cfg.repo.path)
-    _ensure_git_repo(cfg.repo.path)
+    # Real (local/ssh) repos are never wiped, and never silently git-initialised:
+    # Bridge edits and commits, so a live target must already be a git checkout.
+    if cfg.executor.kind == "mock":
+        if not args.keep:
+            _reset_scratch(cfg.repo.path)
+        _ensure_git_repo(cfg.repo.path)
+    elif cfg.executor.kind == "local" and not os.path.isdir(
+        os.path.join(cfg.repo.path, ".git")
+    ):
+        print(
+            f"bridge: repo.path is not a git checkout: {cfg.repo.path}\n"
+            "        Bridge commits one fix per iteration -- clone or `git init` the\n"
+            "        repo first (a scratch clone is recommended; see THREAT_MODEL.md).",
+            file=sys.stderr,
+        )
+        return 2
     ex = create_executor(cfg)
 
     scenario = getattr(ex, "scenario", None)
@@ -437,6 +461,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"  STUCK clusters: {[c[0] for c in orch.stuck_clusters]}")
     if orch.transport_error:
         print(f"  LLM endpoint failure (after retries): {orch.transport_error[:160]}")
+    if orch.internal_error:
+        print(f"  internal failure (run degraded, log finished): {orch.internal_error[:160]}")
     print(f"  tokens: {rec.state.total_prompt_tokens} prompt + "
           f"{rec.state.total_completion_tokens} completion   cost: ${rec.state.total_cost:.4f}")
     print(f"  dashboard state: {state_path}")

@@ -29,7 +29,7 @@ warp-size 32-vs-64 assumptions on CDNA, `__shfl_sync` semantics,
 finish a migration it says so precisely — every run ends in a complete, honest
 report ("HIPIFY got X%, Bridge autonomously fixed these classes, these remain").
 
-> **Status:** built, verified — **143 tests passing** — and **proven on real AMD
+> **Status:** built, verified — **156 tests passing** — and **proven on real AMD
 > hardware**: on 2026-07-08 Bridge autonomously ported a CUDA project to a
 > passing test on a Radeon GPU pod (`gfx1100`, ROCm 7.2). Everything below runs
 > on a laptop with **no GPU and no API key**, replaying genuine recorded runs.
@@ -173,7 +173,7 @@ identically for both models.
 
 ```bash
 python -m pip install pytest httpx
-python -m pytest -q          # 143 tests
+python -m pytest -q          # 156 tests
 ```
 
 Written to convince a skeptical judge, not just to pass CI: authentic ROCm/clang
@@ -205,7 +205,9 @@ treats as one. Guardrails are mechanical and enforced on the diff *before* it is
 applied, so they hold even under indirect prompt injection from a hostile repo: a
 writable-path allowlist, a never-touch protected list, a denylist of dangerous
 insertions (shell-out, network egress, `eval`), a size cap, and a ban on editing
-test files. The `poisoned` fixture is a repo that attempts exactly this attack;
+test files — checked on **both sides of every hunk**, so deletions, renames,
+mode changes, and symlink tricks are gated too, and a run whose test suite ever
+*shrinks* is refused SUCCESS. The `poisoned` fixture is a repo that attempts exactly this attack;
 a test proves the gate rejects it. See [THREAT_MODEL.md](THREAT_MODEL.md).
 
 ## Repository layout

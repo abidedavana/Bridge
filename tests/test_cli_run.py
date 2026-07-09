@@ -37,6 +37,32 @@ def test_bridge_run_is_repeatable(tmp_path):
         assert any(it["diff"] for it in state["iterations"])  # diffs really applied
 
 
+def test_run_refuses_to_reset_a_non_bridge_directory(tmp_path):
+    """The mock-mode scratch reset must never delete a directory Bridge did not
+    itself create: a mock config whose repo.path points at a real folder is
+    protected by the provenance-marker check."""
+    import pytest
+
+    victim = tmp_path / "important"
+    victim.mkdir()
+    (victim / "thesis.txt").write_text("do not delete", encoding="utf-8")
+    cfg = {
+        "executor": {"kind": "mock", "mock": {"scenario": str(REPO_ROOT / "fixtures/scenarios/success.yaml")}},
+        "commands": {"hipify": "hipify-perl", "build": "cmake --build build", "test": "ctest"},
+        "repo": {"path": str(victim)},
+        "llm": {"backend": "replay", "replay": {"cassette": str(REPO_ROOT / "fixtures/cassettes/success.json")}},
+        "prompts_dir": str(REPO_ROOT / "prompts"),
+        "runs_dir": str(tmp_path / "runs"),
+    }
+    cfg_path = tmp_path / "c.yaml"
+    cfg_path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc:
+        main(["run", "--config", str(cfg_path)])
+    assert exc.value.code == 2
+    assert (victim / "thesis.txt").exists()  # nothing was deleted
+
+
 def test_partial_report_never_lists_a_class_as_both_fixed_and_stuck(tmp_path, capsys):
     from tests.test_orchestrator import write_cassette
 

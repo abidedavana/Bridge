@@ -14,6 +14,8 @@ scoring/rendering is pure and unit-tested offline.
 from __future__ import annotations
 
 import posixpath
+import re
+import shlex
 from dataclasses import dataclass, field
 
 from .parser import parse
@@ -52,9 +54,18 @@ class RepoReport:
         return round(self.closeness + 4.0 * self.interest, 1)
 
 
+_NAME_OK = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
 def evaluate_repo(executor, name: str, url: str, workdir: str, commands) -> RepoReport:
+    # The candidates file is user-authored, but names/urls still get interpolated
+    # into a shell command with `rm -rf` in it — validate and quote, always.
+    if not _NAME_OK.match(name) or name in (".", ".."):
+        return RepoReport(name, url, cloned=False, note="invalid repo name (letters/digits/._- only)")
     dest = posixpath.join(workdir, name)
-    clone = executor.run(f"rm -rf {dest} && git clone --depth 1 {url} {dest}")
+    clone = executor.run(
+        f"rm -rf {shlex.quote(dest)} && git clone --depth 1 {shlex.quote(url)} {shlex.quote(dest)}"
+    )
     if not clone.ok:
         return RepoReport(name, url, cloned=False, note="clone failed")
     hip = executor.run(commands.hipify, cwd=dest)

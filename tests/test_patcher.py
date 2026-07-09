@@ -95,6 +95,89 @@ def test_root_level_test_file_still_blocked():
     assert not r.ok and "test file" in r.reason
 
 
+def test_deleting_a_test_file_is_rejected():
+    """Red-team: the denylist checks added lines and the old gate only read the
+    +++ side — so bundling a test-file DELETION with one innocuous edit slipped
+    past every path check. Deletions are policy-checked by their old path now."""
+    diff = (
+        "--- a/src/gemm.cpp\n+++ b/src/gemm.cpp\n@@ -1 +1 @@\n-a\n+b\n"
+        "--- a/tests/reduce_test.cpp\n+++ /dev/null\n@@ -1,2 +0,0 @@\n-int x;\n-int y;\n"
+    )
+    r = check_diff(diff, make_cfg())
+    assert not r.ok and "test file" in r.reason
+
+
+def test_deleting_a_protected_file_is_rejected():
+    diff = (
+        "--- a/src/gemm.cpp\n+++ b/src/gemm.cpp\n@@ -1 +1 @@\n-a\n+b\n"
+        "--- a/LICENSE\n+++ /dev/null\n@@ -1 +0,0 @@\n-MIT\n"
+    )
+    r = check_diff(diff, make_cfg())
+    assert not r.ok and "protected" in r.reason
+
+
+def test_rename_headers_are_policy_checked():
+    # a 100%-similarity rename carries no ---/+++ pair at all; the rename
+    # headers themselves must be checked (here: renaming a test file away).
+    diff = (
+        "diff --git a/tests/reduce_test.cpp b/src/not_a_test.cpp\n"
+        "similarity index 100%\n"
+        "rename from tests/reduce_test.cpp\n"
+        "rename to src/not_a_test.cpp\n"
+        "--- a/src/gemm.cpp\n+++ b/src/gemm.cpp\n@@ -1 +1 @@\n-a\n+b\n"
+    )
+    r = check_diff(diff, make_cfg())
+    assert not r.ok and "test file" in r.reason
+
+
+def test_symlink_creation_is_rejected():
+    diff = (
+        "diff --git a/src/evil.h b/src/evil.h\nnew file mode 120000\n"
+        "--- /dev/null\n+++ b/src/evil.h\n@@ -0,0 +1 @@\n+/etc/passwd\n"
+    )
+    r = check_diff(diff, make_cfg())
+    assert not r.ok and "mode" in r.reason
+
+
+def test_mode_flip_is_rejected():
+    diff = (
+        "diff --git a/src/run.cpp b/src/run.cpp\nold mode 100644\nnew mode 100755\n"
+        "--- a/src/run.cpp\n+++ b/src/run.cpp\n@@ -1 +1 @@\n-a\n+b\n"
+    )
+    r = check_diff(diff, make_cfg())
+    assert not r.ok and "mode" in r.reason
+
+
+def test_new_regular_file_mode_is_still_allowed():
+    diff = (
+        "diff --git a/src/compat.hip b/src/compat.hip\nnew file mode 100644\n"
+        "--- /dev/null\n+++ b/src/compat.hip\n@@ -0,0 +1 @@\n+// shim\n"
+    )
+    assert check_diff(diff, make_cfg()).ok
+
+
+def test_path_traversal_is_rejected():
+    diff = "--- a/../outside.cmake\n+++ b/../outside.cmake\n@@ -1 +1 @@\n-a\n+b\n"
+    r = check_diff(diff, make_cfg())
+    assert not r.ok and "suspicious path" in r.reason
+
+
+def test_absolute_path_is_rejected():
+    diff = "--- /etc/profile.d/x.cmake\n+++ /etc/profile.d/x.cmake\n@@ -1 +1 @@\n-a\n+b\n"
+    r = check_diff(diff, make_cfg())
+    assert not r.ok and "suspicious path" in r.reason
+
+
+def test_exec_family_sibling_is_rejected():
+    # execl/execv/posix_spawn are the same payload class as the listed system()/execve
+    diff = (
+        "--- a/src/gemm.cpp\n+++ b/src/gemm.cpp\n@@ -1,2 +1,3 @@\n"
+        ' int main() {\n+  execl("/bin/sh", "sh", "-c", "id", (char*)0);\n }\n'
+    )
+    r = check_diff(diff, make_cfg())
+    assert not r.ok and "forbidden" in r.reason
+
+
 def test_miscounted_hunk_header_applies_via_recount(git_repo):
     """LLMs emit semantically-correct diffs with wrong @@ counts (seen on the
     first live Fireworks run). --recount lets git infer the counts."""

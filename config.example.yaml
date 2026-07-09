@@ -23,13 +23,16 @@ repo:
   path: scratch/target-repo
   offload_arch: gfx942   # CDNA3 / MI300X
 
-# The three target-specific commands Bridge drives. Everything else (git, patch)
-# Bridge issues itself.
+# The target-specific commands Bridge drives. Everything else (git, patch)
+# Bridge issues itself. `configure` (optional) is run as part of EVERY build,
+# so configure-stage errors stay visible and fixable by the agent loop.
 commands:
   configure: cmake -S . -B build -DCMAKE_CXX_COMPILER=hipcc
   hipify: hipify-perl -inplace -print-stats $(find src -name '*.cu')
   build: cmake --build build -j
-  test: ctest --test-dir build --output-on-failure
+  # --no-tests=error: a suite that shrinks to zero tests must never read as a
+  # pass (Bridge also refuses SUCCESS if the test count ever drops mid-run).
+  test: ctest --test-dir build --output-on-failure --no-tests=error
 
 llm:
   # backend: openai (any OpenAI-compatible endpoint) | replay (recorded cassette,

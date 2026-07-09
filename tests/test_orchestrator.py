@@ -195,6 +195,96 @@ def test_poisoned_repo_injection_is_rejected_end_to_end(tmp_path, monkeypatch):
             assert "system(" not in path.read_text(encoding="utf-8", errors="ignore")
 
 
+def test_configure_is_run_as_part_of_every_build(tmp_path):
+    """`commands.configure` (the cmake -S step) must actually execute — folded
+    into every build so configure-stage errors stay visible and fixable by the
+    loop. Regression: the wizard and config.example.yaml both write a configure
+    command that the loop previously never ran."""
+    from bridge.executor.base import Phase
+
+    orch, rec, _ = build(tmp_path, "success.yaml", write_cassette(tmp_path / "c.json"))
+    orch.cfg.commands.configure = "cmake -S . -B build -DCMAKE_CXX_COMPILER=hipcc"
+    seen = []
+    real = orch.executor.run
+
+    def spy(command, **kw):
+        if kw.get("phase") is Phase.BUILD:
+            seen.append(command)
+        return real(command, **kw)
+
+    orch.executor.run = spy
+    assert orch.run() is RunOutcome.SUCCESS
+    assert seen, "no build command was issued"
+    assert all(
+        c.startswith("cmake -S . -B build") and "cmake --build build" in c for c in seen
+    ), seen
+
+
+def test_shrinking_test_suite_refuses_success(tmp_path):
+    """A 'pass' that runs fewer tests than previously seen is treated as test
+    de-registration (an in-policy edit to a writable build file can remove
+    add_test without touching any test file) — never as SUCCESS."""
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / "hip.txt").write_text(
+        "HIPIFY TOTAL statistics:\n  CONVERSION %: 100\n", encoding="utf-8"
+    )
+    (logs / "build_ok.txt").write_text("[100%] Built target app\n", encoding="utf-8")
+    (logs / "t5.txt").write_text(
+        "1/5 Test #1: a ....***Failed\n40% tests passed, 3 tests failed out of 5\n",
+        encoding="utf-8",
+    )
+    (logs / "t3.txt").write_text(
+        "100% tests passed, 0 tests failed out of 3\n", encoding="utf-8"
+    )
+    scen = tmp_path / "shrink.yaml"
+    scen.write_text(
+        f"""
+name: shrink
+hipify: {{ log: {json.dumps(str(logs / 'hip.txt'))}, exit_code: 0 }}
+stages:
+  - name: five_tests_failing
+    build: {{ log: {json.dumps(str(logs / 'build_ok.txt'))}, exit_code: 0 }}
+    test: {{ log: {json.dumps(str(logs / 't5.txt'))}, exit_code: 8, passed: 2, total: 5 }}
+  - name: three_tests_passing
+    sticky: true
+    build: {{ log: {json.dumps(str(logs / 'build_ok.txt'))}, exit_code: 0 }}
+    test: {{ log: {json.dumps(str(logs / 't3.txt'))}, exit_code: 0, passed: 3, total: 3 }}
+""",
+        encoding="utf-8",
+    )
+    orch, rec, _ = build(tmp_path, str(scen), write_cassette(tmp_path / "c.json"))
+    outcome = orch.run()
+    assert outcome is RunOutcome.PARTIAL
+    assert ("test_count_dropped", None) in orch.stuck_clusters
+    assert "dropped 5 -> 3" in rec.state.iterations[-1].message
+    assert rec.state.status == "PARTIAL"
+
+
+def test_internal_failure_still_finishes_run_log(tmp_path):
+    """Any unexpected exception (executor transport, disk, recorder) must degrade
+    to an honest terminal state with the run log finished — never a crash, never
+    a dashboard stranded on RUNNING."""
+    from bridge.executor.base import Phase
+
+    orch, rec, _ = build(tmp_path, "success.yaml", write_cassette(tmp_path / "c.json"))
+    real = orch.executor.run
+    state = {"builds": 0}
+
+    def dying(command, **kw):
+        if kw.get("phase") is Phase.BUILD:
+            state["builds"] += 1
+            if state["builds"] >= 2:
+                raise RuntimeError("executor transport died")
+        return real(command, **kw)
+
+    orch.executor.run = dying
+    outcome = orch.run()  # must not raise
+    assert outcome in (RunOutcome.STUCK, RunOutcome.PARTIAL)
+    assert orch.internal_error and "executor transport died" in orch.internal_error
+    assert rec.state.status == outcome.value
+
+
 def test_garbage_model_output_does_not_crash(tmp_path):
     # every diagnose reply is unparseable; the loop must degrade, not crash
     orch, rec, _ = build(tmp_path, "stuck_build.yaml",

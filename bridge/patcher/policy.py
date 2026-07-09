@@ -2,17 +2,23 @@
 
 Every diff is checked here *before* it is applied, so the guardrails hold even if
 the model is wrong or adversarially steered by indirect prompt injection. A diff
-is rejected if it: touches a file outside the writable allowlist, touches a
-protected path, edits a test file (unless explicitly allowed), introduces a
-forbidden construct (shell-out / network / eval), exceeds the size cap, or creates
-too many new files. Pure and I/O-free so it is exhaustively unit-testable,
-including against the poisoned fixture's payload.
+is rejected if it: touches a file outside the writable allowlist (checked on BOTH
+sides of every hunk, so deletions and renames are policy-checked by their old path
+too), touches a protected path, edits or deletes a test file (unless explicitly
+allowed), introduces a forbidden construct (shell-out / network / eval), changes a
+file mode or creates a non-regular file (symlinks), uses a traversal or absolute
+path, exceeds the size cap, or creates too many new files. Pure and I/O-free so it
+is exhaustively unit-testable, including against the poisoned fixture's payload.
 """
 
 from __future__ import annotations
 
 import fnmatch
+import re
 from dataclasses import dataclass, field
+
+# Windows drive-letter prefix ("C:...") — an absolute path in disguise.
+_DRIVE_PREFIX = re.compile(r"^[A-Za-z]:")
 
 
 @dataclass
@@ -21,6 +27,9 @@ class DiffFacts:
     new_files: list[str] = field(default_factory=list)
     added_lines: list[str] = field(default_factory=list)
     changed_line_count: int = 0
+    # Extended git headers that alter a file's mode or type (symlink creation,
+    # executable-bit flips). Porting fixes never need these; the gate rejects them.
+    mode_lines: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -33,19 +42,40 @@ class PolicyResult:
 def parse_diff(diff: str) -> DiffFacts:
     facts = DiffFacts()
     pending_new = False
+
+    def touch(path: str) -> None:
+        if path.startswith(("a/", "b/")):
+            path = path[2:]
+        if path and path != "/dev/null" and path not in facts.touched_files:
+            facts.touched_files.append(path)
+
     for line in diff.splitlines():
         if line.startswith("--- "):
             src = line[4:].strip()
             pending_new = src.endswith("/dev/null")
+            if not pending_new:
+                # The OLD path is policy-relevant too: a deletion hunk
+                # ("+++ /dev/null") or a rename would otherwise slip past the
+                # test-file / protected / allowlist checks entirely.
+                touch(src)
         elif line.startswith("+++ "):
             path = line[4:].strip()
             if path.startswith("b/"):
                 path = path[2:]
             if path != "/dev/null":
-                facts.touched_files.append(path)
+                if path not in facts.touched_files:
+                    facts.touched_files.append(path)
                 if pending_new:
                     facts.new_files.append(path)
             pending_new = False
+        elif line.startswith(("rename from ", "rename to ")):
+            # git rename headers carry bare paths (no a/ b/ prefix) and may
+            # appear with no ---/+++ pair at all (100% similarity).
+            touch(line.split(" ", 2)[2])
+        elif line.startswith(("old mode ", "new mode ")) or (
+            line.startswith("new file mode ") and not line.rstrip().endswith("100644")
+        ):
+            facts.mode_lines.append(line.strip())
         elif line.startswith("+") and not line.startswith("+++"):
             facts.added_lines.append(line[1:])
             facts.changed_line_count += 1
@@ -75,6 +105,19 @@ def check_diff(diff: str, config) -> PolicyResult:
 
     sec = config.security
     pol = config.policy
+
+    # Path shape first: no absolute paths, no traversal, no option-lookalikes.
+    # (git apply also refuses most of these by default, but the gate must not
+    # depend on another tool's defaults for a security property.)
+    for path in facts.touched_files:
+        norm = path.replace("\\", "/")
+        if norm.startswith(("/", "-")) or ".." in norm.split("/") or _DRIVE_PREFIX.match(norm):
+            return PolicyResult(False, f"suspicious path (absolute/traversal): {path}", facts)
+
+    if facts.mode_lines:
+        return PolicyResult(
+            False, f"changes a file mode/type (forbidden): {facts.mode_lines[0]}", facts
+        )
 
     for path in facts.touched_files:
         if _matches_any(path, sec.protected_globs):

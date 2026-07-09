@@ -6,8 +6,10 @@ the loop that must be *real* even in simulation -- git commits, file writes, pat
 application -- so that "real diffs, real commits to a scratch repo" (Milestone 3)
 is genuinely real, not faked.
 
-On its own it is also a legitimate executor for a machine that *does* have ROCm
-installed locally, though that is not the supported demo path.
+On its own it is the `executor.kind: local` path: Bridge running directly on a
+ROCm box or GPU pod — the path the recorded gfx1100 hardware run used. Note the
+trust consequence (see THREAT_MODEL.md T2): in local mode the untrusted build
+executes on the same host, and in the same environment, as Bridge itself.
 """
 
 from __future__ import annotations

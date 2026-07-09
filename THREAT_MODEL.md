@@ -66,19 +66,26 @@ fixture reproduces it.
 - *Mechanical (the load-bearing control):* the **patch policy engine** rejects
   any diff whose added lines contain a `forbidden_insertions` token (shell-out,
   network egress, `eval`, …), touches a file outside `writable_globs`, touches a
-  `protected_globs` path, edits a test file, or exceeds the size cap. This holds
-  **even if the model is fully compromised** — the injected payload never reaches
-  `git apply`. Pinned today by `tests/test_security_fixture.py`; the rejection
-  itself is asserted by the red-team test in Milestone 3.
+  `protected_globs` path, edits **or deletes or renames** a test file (both
+  sides of every hunk are policy-checked, so deletions and renames cannot slip
+  past by their old path), changes a file mode or creates a non-regular file
+  (symlinks), uses an absolute or traversal path, or exceeds the size cap. This
+  holds **even if the model is fully compromised** — the injected payload never
+  reaches `git apply`. Pinned by the red-team cases in `tests/test_patcher.py`
+  and end-to-end by `tests/test_orchestrator.py`.
 
 ### T2 — Arbitrary code execution from build/test
 Cloning and building an untrusted repo runs its `CMakeLists.txt`, configure
 scripts, and test binaries — arbitrary code, by design.
 
-**Mitigations:** the build/test run is confined to the `SSHExecutor`'s remote
-box, which is a **disposable MI300X instance**, not a machine holding anything of
-value. Bridge operates on a **scratch clone**, never the user's working copy. The
-host running the orchestrator in mock mode never executes repo code at all.
+**Mitigations, by executor kind:** in `ssh` mode the build/test run is confined
+to a remote box that should be a **disposable GPU instance**, not a machine
+holding anything of value. In `mock` mode the host never executes repo code at
+all. In `local` mode — the path the recorded gfx1100 hardware run used — the
+untrusted build **executes on the same host as Bridge itself, in the same
+environment**; run it only on a disposable box (the hackathon pod model), and
+note the T5 consequence below. Bridge always operates on a **scratch clone**,
+never the user's working copy, and refuses to run against a non-git directory.
 A `security.sandbox` mode (build runs non-root with resource limits and
 constrained network egress) is **PLANNED** — the config flag exists but is
 enforced by no code today, the same status as T7's hash-chaining.
@@ -114,6 +121,10 @@ API keys and SSH credentials could leak into logs, commits, or prompts.
 (`llm.api_key_env`, `ssh.password_env`), never stored in the config file; `.env`
 and `runs/` are git-ignored. The run log records diffs and diagnostics, not
 environment. Prompts are built from repo content and errors only.
+**Residual (local mode):** because the untrusted build runs in the same
+environment as Bridge, a malicious build script can read `BRIDGE_LLM_API_KEY`
+from the process environment. Use a disposable, low-value key on shared or
+long-lived local boxes; the sandbox (T2, PLANNED) is the structural fix.
 
 ### T6 — Runaway / resource exhaustion
 An agent loop that never terminates, or burns unbounded tokens/GPU.

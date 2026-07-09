@@ -63,5 +63,6 @@ def create_executor(config) -> Executor:
             key_path=ex.ssh.key_path,
             password=password,
             connect_timeout=ex.ssh.connect_timeout_s,
+            accept_unknown_host_key=ex.ssh.accept_unknown_host_key,
         )
     raise ValueError(f"unknown executor.kind: {ex.kind!r}")

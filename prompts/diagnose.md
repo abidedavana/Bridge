@@ -1,9 +1,8 @@
-# Bridge — Diagnose prompt (v1 draft)
+# Bridge — Diagnose prompt
 
-> Versioned prompt file. Loaded by the M3 orchestrator; `{{...}}` markers are
-> filled by the context builder. Tuned against fixtures in M3. Cheat-sheet facts
-> grounded in AMD's official HIP porting guide and HIPIFY tables (see sources at
-> end).
+> Versioned prompt file; `{{...}}` markers are filled by the context builder.
+> Cheat-sheet facts grounded in AMD's official HIP porting guide and HIPIFY
+> tables (see sources at end).
 
 ## SYSTEM
 

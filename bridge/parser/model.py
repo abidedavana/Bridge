@@ -112,8 +112,9 @@ class Diagnostic:
 
 @dataclass
 class Cluster:
-    """Diagnostics to fix as a unit (same class + file). The orchestrator caps
-    attempts per cluster, so this is the granularity a STUCK verdict applies to."""
+    """Diagnostics grouped as one fixable unit (same class + file) — the same
+    granularity the orchestrator's attempt cap uses (it keys on (class, file)
+    itself). Consumed by the shortlist scorer and available to the dashboard."""
 
     error_class: str
     category: str

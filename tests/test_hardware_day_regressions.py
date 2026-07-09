@@ -177,7 +177,7 @@ def test_agent_commits_succeed_without_global_git_identity(tmp_path):
                         load_prompts(cfg.prompts_dir), rec)
 
     ex.write_file("src/fix.hip", "// ported\n")
-    orch._commit(1, None, {"fix_summary": "port fix"})
+    assert orch._commit(1, None, {"fix_summary": "port fix"}, ["src/fix.hip"])
 
     log = subprocess.run(["git", "-C", str(repo), "log", "--pretty=%an %s"],
                          capture_output=True, text=True).stdout

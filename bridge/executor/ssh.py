@@ -1,9 +1,9 @@
-"""SSHExecutor: runs the whole loop on the AMD MI300X box over SSH/SFTP.
+"""SSHExecutor: runs the whole loop on a remote AMD GPU box over SSH/SFTP.
 
-This is the "real hardware" implementation of `Executor`. It is written now,
-interface-complete, so switching from a laptop simulation to a live port is a
-one-line config change (`executor.kind: ssh`). It is exercised for real in
-Milestone 5 once the MI300X instance and credentials exist.
+This is the remote-hardware implementation of `Executor` (the recorded gfx1100
+hardware run used `local` — Bridge on the GPU host itself). It is
+interface-complete and unit-tested, but has NOT been exercised against a live
+remote box; treat it as beta.
 
 `paramiko` is imported lazily so the rest of Bridge -- the mock path, the parser,
 the tests -- imports and runs with zero SSH dependencies installed.
@@ -12,6 +12,7 @@ the tests -- imports and runs with zero SSH dependencies installed.
 from __future__ import annotations
 
 import posixpath
+import shlex
 import time
 
 from .base import ExecResult, Executor, Phase
@@ -28,6 +29,7 @@ class SSHExecutor(Executor):
         key_path: str | None = None,
         password: str | None = None,
         connect_timeout: float = 30.0,
+        accept_unknown_host_key: bool = False,
     ):
         self.host = host
         self.user = user
@@ -36,6 +38,7 @@ class SSHExecutor(Executor):
         self._key_path = key_path
         self._password = password
         self._connect_timeout = connect_timeout
+        self._accept_unknown_host_key = accept_unknown_host_key
         self._client = None
         self._sftp = None
 
@@ -53,7 +56,14 @@ class SSHExecutor(Executor):
             ) from exc
 
         client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.load_system_host_keys()
+        # Unknown host keys are rejected by default: a MITM on this hop could
+        # tamper with the audit-trail commits and read repo content. Opt in to
+        # auto-accept only for throwaway boxes (ssh.accept_unknown_host_key).
+        if self._accept_unknown_host_key:
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        else:
+            client.set_missing_host_key_policy(paramiko.RejectPolicy())
         client.connect(
             hostname=self.host,
             port=self.port,
@@ -100,7 +110,8 @@ class SSHExecutor(Executor):
         client = self._connect()
         run_cwd = self._remote_path(cwd) if cwd else self.remote_workdir
         # Wrap so relative paths and multi-line commands behave predictably.
-        wrapped = f"cd {run_cwd!r} && {command}"
+        # shlex.quote, not repr: the remote shell is POSIX, not Python.
+        wrapped = f"cd {shlex.quote(run_cwd)} && {command}"
         start = time.monotonic()
         _stdin, stdout, stderr = client.exec_command(wrapped, timeout=timeout)
         out = stdout.read().decode("utf-8", "replace")

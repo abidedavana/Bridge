@@ -127,7 +127,9 @@ def extract_diff(text: str) -> str:
     text = strip_thoughts(text)
     if not text.strip():
         raise ExtractionError("response contained only <thought> text, no payload")
-    if text.strip() == NO_PATCH or text.strip().splitlines()[0].strip() == NO_PATCH:
+    first_line = text.strip().splitlines()[0].strip()
+    if first_line == NO_PATCH or first_line.startswith(NO_PATCH + " ") or first_line.startswith(NO_PATCH + "."):
+        # "NO_PATCH — reason…" is still an explicit decline; don't burn a retry.
         raise NoPatchProposed()
     body = unfence(text)
     m = _DIFF_START.search(body)

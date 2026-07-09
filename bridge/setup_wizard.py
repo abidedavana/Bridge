@@ -79,7 +79,9 @@ def detect_commands(repo_path: str) -> dict[str, str | None]:
             "build_system": "cmake",
             "configure": "cmake -S . -B build -DCMAKE_CXX_COMPILER=hipcc",
             "build": "cmake --build build -j",
-            "test": "ctest --test-dir build --output-on-failure",
+            # --no-tests=error: a suite that silently shrank to zero tests must
+            # never read as a pass (the de-registration cheat).
+            "test": "ctest --test-dir build --output-on-failure --no-tests=error",
             "hipify": hipify,
         }
     if os.path.exists(os.path.join(repo_path, "Makefile")):
@@ -94,7 +96,7 @@ def detect_commands(repo_path: str) -> dict[str, str | None]:
         "build_system": None,
         "configure": None,
         "build": "cmake --build build -j",
-        "test": "ctest --test-dir build --output-on-failure",
+        "test": "ctest --test-dir build --output-on-failure --no-tests=error",
         "hipify": hipify,
     }
 

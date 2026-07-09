@@ -1,9 +1,8 @@
-# Bridge — Propose-edit prompt (v1 draft)
+# Bridge — Propose-edit prompt
 
-> Versioned prompt file. Loaded by the M3 orchestrator; `{{...}}` markers are
-> filled by the context builder. Its output is validated mechanically by the
-> patch policy engine (M3 pass two) before anything is applied — so these rules
-> are enforced, not merely requested.
+> Versioned prompt file; `{{...}}` markers are filled by the context builder.
+> Its output is validated mechanically by the patch policy engine before
+> anything is applied — so these rules are enforced, not merely requested.
 
 ## SYSTEM
 

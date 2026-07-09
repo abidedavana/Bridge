@@ -44,7 +44,7 @@ class IterationRecord:
 class RunState:
     run_id: str
     scenario: str
-    executor: str                    # mock | ssh
+    executor: str                    # mock | local | ssh
     status: str = "RUNNING"          # RUNNING | SUCCESS | PARTIAL | STUCK
     # endpoint badge — proves where the brain runs
     llm_backend: str = ""
@@ -101,7 +101,17 @@ class RunRecorder:
         tmp = self.path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(self.state.to_dict(), fh, indent=2)
-        os.replace(tmp, self.path)  # atomic on the same filesystem
+        # Atomic on the same filesystem. On Windows the replace can transiently
+        # fail with a sharing violation while the dashboard has the file open
+        # for reading -- retry briefly rather than crash the run.
+        for attempt in range(4):
+            try:
+                os.replace(tmp, self.path)
+                return
+            except PermissionError:
+                if attempt == 3:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
 
 
 def load_state(path: str) -> Optional[dict]:

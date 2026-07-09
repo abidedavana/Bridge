@@ -29,6 +29,10 @@ class SSHSettings(BaseModel):
     # Password auth is supported but discouraged; prefer a key.
     password_env: Optional[str] = None
     connect_timeout_s: float = 30.0
+    # Unknown host keys are REJECTED by default (a MITM on this hop could tamper
+    # with the audit trail and read repo content). Set true only for a throwaway
+    # box you cannot pre-seed into known_hosts.
+    accept_unknown_host_key: bool = False
 
 
 class MockSettings(BaseModel):
@@ -238,6 +242,11 @@ class SecurityConfig(BaseModel):
             "popen(",
             "exec(",
             "execve",
+            "execl",          # execl / execlp / execle — same class as execve
+            "execv",          # execv / execvp / execvpe
+            "posix_spawn",
+            "vfork(",
+            "dlopen(",
             "fork(",
             "socket(",
             "curl ",

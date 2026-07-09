@@ -1,14 +1,16 @@
 """The Executor interface: the single seam between Bridge's logic and the hardware.
 
 Every command Bridge runs against the target repo -- HIPIFY, build, test, git,
-file reads/writes -- goes through an `Executor`. Two implementations exist:
+file reads/writes -- goes through an `Executor`. Three implementations:
 
   * `MockExecutor`  - replays realistic fixture logs; needs no GPU (dev/CI path).
-  * `SSHExecutor`   - runs everything on the AMD MI300X box over SSH/SFTP.
+  * `LocalExecutor` - runs for real on THIS machine (the ROCm box / GPU pod path
+                      used for the recorded gfx1100 hardware run).
+  * `SSHExecutor`   - runs everything on a remote AMD box over SSH/SFTP.
 
 One config switch (`executor.kind`) chooses between them. Because the orchestrator
-only ever sees this interface, the *exact same* agent loop drives both a laptop
-simulation and a live MI300X port.
+only ever sees this interface, the *exact same* agent loop drives a laptop
+simulation and a live hardware port.
 
 Design note on phases: build systems and compilers scatter diagnostics across
 stdout and stderr, so the parser always reads `combined_output`. The orchestrator
