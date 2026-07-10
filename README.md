@@ -29,12 +29,15 @@ warp-size 32-vs-64 assumptions on CDNA, `__shfl_sync` semantics,
 finish a migration it says so precisely — every run ends in a complete, honest
 report ("HIPIFY got X%, Bridge autonomously fixed these classes, these remain").
 
-> **Status:** built, verified — **156 tests passing** — and **proven on real AMD
+> **Status:** built, verified — **159 tests passing** — and **proven on real AMD
 > hardware**: on 2026-07-08 Bridge autonomously ported a CUDA project to a
 > passing test on a Radeon GPU pod (`gfx1100`, ROCm 7.2). Everything below runs
 > on a laptop with **no GPU and no API key**, replaying genuine recorded runs.
 
 ## Results (all runs real and recorded; no synthetic outcomes)
+
+We publish every run, including the ones that stopped early — an agent you can
+trust is one that tells you when it's beaten.
 
 | Run | Brain | Outcome |
 | --- | --- | --- |
@@ -48,6 +51,10 @@ The security gate behaved identically in every run, whichever brain was driving.
 ---
 
 ## 30-second demo (no GPU, no API key)
+
+Two demo surfaces, one story: the [hosted story page](https://abidedavana.github.io/Bridge/demo/)
+reads end-to-end with no install; the **dashboard** below is the live monitor
+you run locally and watch climb.
 
 From a fresh clone, with Docker:
 
@@ -80,20 +87,19 @@ bridge demo
 ## Run it on your own CUDA repo (live)
 
 The demos above are recordings so they work with no GPU or key. To port a
-**real** repo, on a machine with ROCm and your CUDA repo checked out:
+**real** repo, on a machine with ROCm — one argument:
 
 ```bash
 python -m pip install -e ".[llm,dashboard]"
-bridge init                            # guided setup: detects your GPU arch and
-                                       # build system, writes a validated config.yaml
-export BRIDGE_LLM_API_KEY=fw_your_key  # Fireworks, or any OpenAI-compatible key
-bridge run --dashboard                 # ports the repo; watch live at http://127.0.0.1:8000
+export BRIDGE_LLM_API_KEY=fw_your_key   # Fireworks, or any OpenAI-compatible key
+bridge port https://github.com/you/your-cuda-repo
 ```
 
-`bridge init` detects the GPU (`rocm_agent_enumerator`/`rocminfo`), whether the
-repo builds with CMake or Make, and where its `.cu` files live — you confirm or
-edit each answer, and the result is round-tripped through the config schema
-before it is written. Every field it writes is documented in
+`bridge port` clones the repo (a local path works too), detects the GPU
+(`rocm_agent_enumerator`/`rocminfo`) and the build system, writes a validated
+config, and starts the run with the dashboard open. Prefer to confirm each
+answer? `bridge init` walks the same detection interactively, then
+`bridge run --dashboard` starts the port. Every field is documented in
 [config.example.yaml](config.example.yaml) if you'd rather edit by hand;
 `bridge validate` re-checks any config.
 
@@ -173,7 +179,7 @@ identically for both models.
 
 ```bash
 python -m pip install pytest httpx
-python -m pytest -q          # 156 tests
+python -m pytest -q          # 159 tests
 ```
 
 Written to convince a skeptical judge, not just to pass CI: authentic ROCm/clang

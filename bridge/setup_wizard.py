@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -291,6 +292,97 @@ def _run_init(args: argparse.Namespace, out_path: str, interactive: bool) -> int
     print(f"  {step}. Port the repo and watch it live in your browser:")
     print(f"       bridge run --config {out_path} --dashboard")
     return 0
+
+
+# -- `bridge port` — the one-command journey: point at a repo, get a live run --
+
+_URLISH = re.compile(r"^(https?://|git@|ssh://)")
+
+
+def looks_like_repo_url(target: str) -> bool:
+    return bool(_URLISH.match(target)) or target.endswith(".git")
+
+
+def cmd_port(args: argparse.Namespace) -> int:
+    """One command from "here's a CUDA repo" to a live, dashboard-watched port:
+    clone it (if given a URL), auto-detect the config, check the key, run."""
+    from .config import BridgeConfig
+
+    target = args.target
+    if looks_like_repo_url(target):
+        name = target.rstrip("/").rsplit("/", 1)[-1]
+        name = name[:-4] if name.endswith(".git") else name
+        dest = os.path.abspath(args.dest or name or "cuda-repo")
+        if os.path.exists(dest):
+            print(
+                f"bridge port: destination already exists: {dest}\n"
+                "        pass --dest <new-dir>, or give the local path to reuse it.",
+                file=sys.stderr,
+            )
+            return 2
+        print(f"bridge port: cloning {target} -> {dest}")
+        clone = subprocess.run(["git", "clone", "--depth", "1", target, dest])
+        if clone.returncode != 0:
+            print("bridge port: git clone failed (see output above).", file=sys.stderr)
+            return 2
+        repo_path = dest
+    else:
+        repo_path = os.path.abspath(os.path.expanduser(target))
+        if not os.path.isdir(repo_path):
+            print(f"bridge port: repo path does not exist: {repo_path}", file=sys.stderr)
+            return 2
+
+    if os.path.exists(args.out) and not args.force:
+        print(
+            f"bridge port: {args.out} already exists -- pass --force to overwrite it.",
+            file=sys.stderr,
+        )
+        return 2
+
+    init_ns = argparse.Namespace(
+        repo=repo_path, arch=args.arch, executor="local", base_url=args.base_url,
+        model=args.model, out=args.out, yes=True, force=args.force,
+    )
+    rc = _run_init(init_ns, args.out, interactive=False)
+    if rc != 0:
+        return rc
+
+    cfg = BridgeConfig.load(args.out)
+    if not os.environ.get(cfg.llm.api_key_env):
+        print(
+            f"\nbridge port: the repo and config are ready, but ${cfg.llm.api_key_env} "
+            "is not set.\n"
+            f"  Set the key, then re-run:  bridge port {target}  --force\n"
+            f"  (or:  bridge run --config {args.out} --dashboard)",
+            file=sys.stderr,
+        )
+        return 2
+
+    from .cli import cmd_run
+
+    return cmd_run(argparse.Namespace(
+        config=args.out, record=args.record, keep=True, delay=0.0,
+        dashboard=not args.headless, port=args.dash_port,
+    ))
+
+
+def add_port_parser(sub) -> None:
+    pp = sub.add_parser(
+        "port",
+        help="one command: point at a CUDA repo (URL or path) -> auto-configure -> live run + dashboard",
+    )
+    pp.add_argument("target", help="GitHub URL (cloned --depth 1) or local path of the CUDA repo")
+    pp.add_argument("--dest", default=None, help="clone destination for URL targets (default: the repo name)")
+    pp.add_argument("--arch", default=None, help="target --offload-arch (default: auto-detect, else gfx942)")
+    pp.add_argument("--base-url", default="https://api.fireworks.ai/inference/v1",
+                    help="OpenAI-compatible LLM endpoint")
+    pp.add_argument("--model", default="accounts/fireworks/models/kimi-k2p6")
+    pp.add_argument("--out", default="config.yaml", help="config file to write (default: config.yaml)")
+    pp.add_argument("--force", action="store_true", help="overwrite an existing config")
+    pp.add_argument("--record", default=None, help="record the LLM exchange to this cassette path")
+    pp.add_argument("--headless", action="store_true", help="no dashboard/browser; print the report only")
+    pp.add_argument("--port", dest="dash_port", type=int, default=8000, help="dashboard port")
+    pp.set_defaults(func=cmd_port)
 
 
 def add_init_parser(sub) -> None:

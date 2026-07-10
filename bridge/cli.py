@@ -1,10 +1,13 @@
 """Bridge command-line entry point.
 
-The two smooth-journey commands most users need:
+The three smooth-journey commands most users need:
 
     bridge demo       - one command, one terminal: serve the dashboard, open the
                         browser, and replay a real recorded migration (no GPU, no
                         API key).
+    bridge port       - one command for a LIVE run: point at a CUDA repo (URL or
+                        path); it clones, auto-configures, and runs with the
+                        dashboard open.
     bridge init       - guided setup for a live run: detect the GPU arch and the
                         repo's build system, ask only for what can't be detected,
                         write a validated config.yaml.
@@ -539,8 +542,9 @@ def build_parser() -> argparse.ArgumentParser:
     pdm.add_argument("--headless", action="store_true", help="no dashboard/browser; print the report only")
     pdm.set_defaults(func=cmd_demo)
 
-    from .setup_wizard import add_init_parser
+    from .setup_wizard import add_init_parser, add_port_parser
 
+    add_port_parser(sub)
     add_init_parser(sub)
 
     pv = sub.add_parser("validate", help="validate a config and print a summary")

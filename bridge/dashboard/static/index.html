@@ -332,6 +332,19 @@ const HERO = {
   NO_RUN: ["clock", "var(--muted)", "Waiting for a migration to start…", "The agent clones a CUDA project and ports it to AMD's ROCm, one error at a time."],
 };
 
+// On a finished run, say WHAT happened, not just the verdict: how many real
+// fixes, how the tests ended, what it cost — and where to read every fix.
+function summaryLine(s, fallback) {
+  const iters = s.iterations || [];
+  if (!iters.length) return fallback;
+  const fixes = iters.filter(it => it.diff).length;
+  const last = [...iters].reverse().find(it => it.total);
+  const tests = last ? `tests ${last.passed}/${last.total}` : 'build never went green';
+  const cost = (s.cost_mode === 'self_hosted')
+    ? 'ran on AMD (no per-token cost)' : '$' + (s.total_cost || 0).toFixed(2);
+  return `${fixes} real ${fixes === 1 ? 'fix' : 'fixes'} in ${iters.length} iterations · ${tests} · ${cost} — every fix is listed below ↓`;
+}
+
 async function tick() {
   let s;
   try { s = await (await fetch('/api/state', {cache:'no-store'})).json(); }
@@ -343,7 +356,8 @@ async function tick() {
   $("hero-glyph").innerHTML = ICON[h[0]];
   $("hero-glyph").style.color = h[1];
   $("hero-line").textContent = h[2];
-  $("hero-sub").textContent = h[3];
+  $("hero-sub").textContent =
+    (status === 'RUNNING' || status === 'NO_RUN') ? h[3] : summaryLine(s, h[3]);
   if (status === 'NO_RUN') {
     $("endpoint").innerHTML = '<span class="dot"></span><span>no active run</span>';
     return;

@@ -89,6 +89,44 @@ def test_find_cuda_roots_and_detect_commands(tmp_path):
     assert find_cuda_roots(str(repo)) == ["."]
 
 
+def test_port_local_path_writes_config_then_stops_at_missing_key(tmp_path, monkeypatch):
+    """`bridge port <path>` must do everything it can without a key — write and
+    validate the config — then stop with a clear message, never a live call."""
+    import os
+
+    repo = _cuda_repo(tmp_path)
+    monkeypatch.delenv("BRIDGE_LLM_API_KEY", raising=False)
+    out = tmp_path / "port.yaml"
+    rc = main(["port", str(repo), "--out", str(out)])
+    assert rc == 2  # the ONLY blocker is the missing key
+    cfg = BridgeConfig.load(str(out))  # config exists and round-trips the schema
+    assert cfg.executor.kind == "local"
+    assert os.path.normpath(cfg.repo.path) == os.path.normpath(str(repo))
+    assert "cmake" in cfg.commands.build
+
+
+def test_port_refuses_existing_config_without_force(tmp_path, monkeypatch):
+    repo = _cuda_repo(tmp_path)
+    monkeypatch.delenv("BRIDGE_LLM_API_KEY", raising=False)
+    out = tmp_path / "c.yaml"
+    out.write_text("precious: true\n", encoding="utf-8")
+    rc = main(["port", str(repo), "--out", str(out)])
+    assert rc == 2
+    assert out.read_text(encoding="utf-8") == "precious: true\n"  # untouched
+
+
+def test_port_url_detection():
+    from bridge.setup_wizard import looks_like_repo_url
+
+    assert looks_like_repo_url("https://github.com/a/b")
+    assert looks_like_repo_url("http://example.com/a/b.git")
+    assert looks_like_repo_url("git@github.com:a/b.git")
+    assert looks_like_repo_url("a/b.git")
+    assert not looks_like_repo_url("C:/repos/my-cuda-project")
+    assert not looks_like_repo_url("./local-dir")
+    assert not looks_like_repo_url("fixtures/repos/success")
+
+
 def test_demo_headless_completes_the_replayed_migration(tmp_path):
     cfg = {
         "executor": {"kind": "mock", "mock": {"scenario": str(REPO_ROOT / "fixtures/scenarios/success.yaml")}},
