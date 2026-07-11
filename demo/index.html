@@ -282,16 +282,54 @@
     </section>
   </div>
 
+  <div class="act"><span class="n">4</span><h2>Point it at <i>your</i> repo</h2>
+    <span class="sub">this page is the story — the tool is one command</span></div>
+  <section class="out" id="yours">
+    <div class="head">
+      <h3>Paste your CUDA repo. Leave with <b>your</b> command.</h3>
+      <p class="what">Bridge runs where your AMD GPU is — a ROCm box or an AMD Developer Cloud pod.
+        Nothing runs on this page; it writes the exact commands for your repo.</p>
+    </div>
+    <input id="repo-in" type="text" spellcheck="false"
+      placeholder="https://github.com/you/your-cuda-repo"
+      style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid var(--hair);
+             border-radius:8px;color:inherit;font-family:var(--mono);font-size:13.5px;padding:11px 14px;margin:10px 0 12px;outline:none">
+    <pre class="gitlog" id="port-cmd"></pre>
+    <div class="btnrow" style="margin-top:12px">
+      <button class="run" id="copy-cmd">⧉&nbsp; Copy the commands</button>
+      <span class="hint" id="copy-hint"></span>
+    </div>
+    <p class="what" style="margin-top:12px">It clones, detects your GPU and build system, and ports — one
+      reviewable commit per fix, ending in an honest <b>SUCCESS / PARTIAL / STUCK</b> report. Never a fake pass.</p>
+  </section>
+
   <footer class="cta">
     <div class="big">Bridge removes the labor cost of leaving NVIDIA<span class="amd">.</span></div>
     <a class="repo" href="https://github.com/abidedavana/Bridge">github.com/abidedavana/Bridge ↗</a>
-    <div class="meta">135 tests · replay this run yourself: <span class="mono">docker compose up</span> · MIT · Abid Edavana Zakir</div>
+    <div class="meta">159 tests · replay this run yourself: <span class="mono">docker compose up</span> · MIT · Abid Edavana Zakir</div>
   </footer>
 </div>
 
 <script>
 const $=id=>document.getElementById(id);
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- ACT 4: generate the visitor's own bridge-port command ---------- */
+(function(){
+  const inp=$("repo-in"), out=$("port-cmd"), hint=$("copy-hint");
+  if(!inp||!out) return;
+  const cmdFor = u =>
+`pip install "bridge-migrate[llm,dashboard] @ git+https://github.com/abidedavana/Bridge"
+export BRIDGE_LLM_API_KEY=fw_your_key    # Fireworks, or any OpenAI-compatible key
+bridge port ${u}`;
+  const render=()=>{ const u=inp.value.trim()||"https://github.com/you/your-cuda-repo"; out.textContent=cmdFor(u); };
+  inp.addEventListener("input",render); render();
+  $("copy-cmd").addEventListener("click", async ()=>{
+    try{ await navigator.clipboard.writeText(out.textContent); hint.textContent="copied ✓"; }
+    catch(e){ hint.textContent="select the block and copy manually"; }
+    setTimeout(()=>{hint.textContent="";},2200);
+  });
+})();
 
 /* ---------- ACT 1: the real failing build ---------- */
 const FAIL_LINES = [
